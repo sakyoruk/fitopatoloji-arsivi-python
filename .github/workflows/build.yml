@@ -1,10 +1,10 @@
-name: Build
+name: PyInstaller testi
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  test:
     runs-on: windows-2022
 
     steps:
@@ -13,9 +13,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.8"
+          architecture: "x64"
 
-      - name: Python sürümü
-        run: python --version
+      - name: PyInstaller kur
+        run: python -m pip install "pyinstaller==6.7.0"
 
-      - name: Pip sürümü
-        run: pip --version
+      - name: PyInstaller sürümünü göster
+        run: python -m PyInstaller --version
