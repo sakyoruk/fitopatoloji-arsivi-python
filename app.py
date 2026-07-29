@@ -18,15 +18,16 @@ import zipfile
 
 try:
     import tkinter as tk
-    from tkinter import filedialog, messagebox, ttk
+    from tkinter import filedialog, messagebox, simpledialog, ttk
 except ImportError:  # pragma: no cover
     import Tkinter as tk
     import tkFileDialog as filedialog
     import tkMessageBox as messagebox
+    import tkSimpleDialog as simpledialog
     import ttk
 
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),
@@ -499,7 +500,8 @@ class MainWindow(tk.Tk):
         self.attach_tree.pack(side="left", fill="x", expand=True)
         attach_buttons = ttk.Frame(attachment_frame)
         attach_buttons.pack(side="right", fill="y", padx=(6, 0))
-        ttk.Button(attach_buttons, text="Dosya ekle", command=self.add_attachment).pack(fill="x")
+        ttk.Button(attach_buttons, text="Fotoğraf ekle", command=self.add_photo).pack(fill="x")
+        ttk.Button(attach_buttons, text="Belge ekle", command=self.add_document).pack(fill="x", pady=(3, 0))
         ttk.Button(attach_buttons, text="Aç", command=self.open_attachment).pack(fill="x", pady=3)
         ttk.Button(attach_buttons, text="Kaldır", command=self.remove_attachment).pack(fill="x")
         self.attach_tree.bind("<Double-1>", lambda _e: self.open_attachment())
@@ -614,31 +616,103 @@ class MainWindow(tk.Tk):
         for row in self.db.attachments(self.selected_id):
             self.attach_tree.insert(
                 "", "end", iid=str(row["id"]),
-                values=(row["file_type"], os.path.basename(row["relative_path"]), row["description"]),
+                values=(
+                    "Fotoğraf" if row["file_type"] == "image" else "Belge",
+                    os.path.basename(row["relative_path"]).split("_", 1)[-1],
+                    row["description"],
+                ),
             )
 
-    def add_attachment(self):
+    def add_photo(self):
+        self.add_attachment("image")
+
+    def add_document(self):
+        self.add_attachment("document")
+
+    def add_attachment(self, requested_type=None):
         if not self.selected_id:
             messagebox.showinfo(APP_NAME, "Önce bir hastalık kaydı seçin.", parent=self)
             return
-        filename = filedialog.askopenfilename(title="Fotoğraf veya belge seç")
+
+        image_exts = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff"}
+        if requested_type == "image":
+            filename = filedialog.askopenfilename(
+                title="Fotoğraf seç",
+                filetypes=[
+                    ("Fotoğraf dosyaları", "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.tif;*.tiff"),
+                    ("Tüm dosyalar", "*.*"),
+                ],
+            )
+        else:
+            filename = filedialog.askopenfilename(
+                title="Belge seç",
+                filetypes=[
+                    ("Belgeler", "*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.ppt;*.pptx;*.txt;*.rtf"),
+                    ("Tüm dosyalar", "*.*"),
+                ],
+            )
+
         if not filename:
             return
-        image_exts = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff"}
+
         ext = os.path.splitext(filename)[1].lower()
-        file_type = "image" if ext in image_exts else "document"
-        target_dir = self.paths.images if file_type == "image" else self.paths.documents
-        safe_name = "{}_{}".format(uuid.uuid4().hex[:10], os.path.basename(filename))
+        detected_type = "image" if ext in image_exts else "document"
+        file_type = requested_type or detected_type
+
+        if requested_type == "image" and detected_type != "image":
+            messagebox.showwarning(
+                APP_NAME,
+                "Seçilen dosya desteklenen bir fotoğraf biçiminde değil.",
+                parent=self,
+            )
+            return
+
+        description = simpledialog.askstring(
+            APP_NAME,
+            "Dosya açıklaması (isteğe bağlı):",
+            parent=self,
+        )
+        if description is None:
+            return
+
+        root_dir = self.paths.images if file_type == "image" else self.paths.documents
+        target_dir = os.path.join(root_dir, str(self.selected_id))
+        if not os.path.isdir(target_dir):
+            os.makedirs(target_dir)
+
+        original_name = os.path.basename(filename)
+        safe_name = "{}_{}".format(uuid.uuid4().hex[:10], original_name)
         destination = os.path.join(target_dir, safe_name)
+
         try:
             shutil.copy2(filename, destination)
         except Exception as exc:
             messagebox.showerror(APP_NAME, "Dosya kopyalanamadı:\n{}".format(exc), parent=self)
             return
-        description = ""
+
         relative = os.path.relpath(destination, self.paths.base)
-        self.db.add_attachment(self.selected_id, file_type, relative, description)
+        try:
+            self.db.add_attachment(
+                self.selected_id,
+                file_type,
+                relative,
+                (description or "").strip(),
+            )
+        except Exception as exc:
+            try:
+                os.remove(destination)
+            except Exception:
+                pass
+            messagebox.showerror(APP_NAME, "Dosya kaydedilemedi:\n{}".format(exc), parent=self)
+            return
+
         self.refresh_attachments()
+        self.status_var.set(
+            "{} eklendi: {}".format(
+                "Fotoğraf" if file_type == "image" else "Belge",
+                original_name,
+            )
+        )
 
     def selected_attachment(self):
         selection = self.attach_tree.selection()
