@@ -35,8 +35,25 @@ except ImportError:
     ImageTk = None
     PIL_AVAILABLE = False
 
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.platypus import (
+        Image as RLImage, PageBreak, Paragraph, SimpleDocTemplate,
+        Spacer, Table, TableStyle
+    )
+    import reportlab
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "0.8.0"
+APP_VERSION = "0.9.0"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),
@@ -49,6 +66,9 @@ LONG_FIELDS = [
     ("cultural_control", "Kültürel mücadele"),
     ("biological_control", "Biyolojik mücadele"),
     ("chemical_control", "Kimyasal mücadele / prensipler"),
+    ("distribution_turkey", "Türkiye dağılımı"),
+    ("distribution_world", "Dünya dağılımı"),
+    ("climate_notes", "İklim / çevre notları"),
     ("sources", "Kaynaklar"),
     ("notes", "Kişisel notlar"),
 ]
@@ -58,7 +78,8 @@ ALL_DB_FIELDS = [
     "hosts", "affected_organs", "symptoms", "pathogen_features",
     "disease_cycle", "epidemiology", "differential_diagnosis",
     "cultural_control", "biological_control", "chemical_control",
-    "sources", "notes", "created_at", "updated_at",
+    "distribution_turkey", "distribution_world", "climate_notes",
+    "sources", "notes", "favorite", "created_at", "updated_at",
 ]
 
 
@@ -130,7 +151,11 @@ class Database(object):
                 cultural_control TEXT NOT NULL DEFAULT '',
                 biological_control TEXT NOT NULL DEFAULT '',
                 chemical_control TEXT NOT NULL DEFAULT '',
+                distribution_turkey TEXT NOT NULL DEFAULT '',
+                distribution_world TEXT NOT NULL DEFAULT '',
+                climate_notes TEXT NOT NULL DEFAULT '',
                 sources TEXT NOT NULL DEFAULT '',
+                favorite INTEGER NOT NULL DEFAULT 0,
                 notes TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -148,9 +173,30 @@ class Database(object):
 
             CREATE INDEX IF NOT EXISTS idx_diseases_group ON diseases(group_name);
             CREATE INDEX IF NOT EXISTS idx_diseases_scientific ON diseases(scientific_name);
+            CREATE TABLE IF NOT EXISTS disease_references (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                disease_id INTEGER NOT NULL,
+                source_type TEXT NOT NULL DEFAULT 'Makale',
+                citation TEXT NOT NULL DEFAULT '',
+                identifier TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE
+            );
+
             CREATE INDEX IF NOT EXISTS idx_attachments_disease ON attachments(disease_id);
+            CREATE INDEX IF NOT EXISTS idx_references_disease ON disease_references(disease_id);
             """
         )
+        disease_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(diseases)").fetchall()]
+        for column_name, definition in [
+            ("distribution_turkey", "TEXT NOT NULL DEFAULT ''"),
+            ("distribution_world", "TEXT NOT NULL DEFAULT ''"),
+            ("climate_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("favorite", "INTEGER NOT NULL DEFAULT 0"),
+        ]:
+            if column_name not in disease_columns:
+                self.conn.execute("ALTER TABLE diseases ADD COLUMN {} {}".format(column_name, definition))
+
         columns = [row[1] for row in self.conn.execute("PRAGMA table_info(attachments)").fetchall()]
         if "is_primary" not in columns:
             self.conn.execute("ALTER TABLE attachments ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0")
@@ -188,14 +234,18 @@ class Database(object):
             "SELECT DISTINCT group_name FROM diseases WHERE group_name <> '' ORDER BY group_name COLLATE NOCASE"
         ).fetchall()]
 
-    def search(self, query="", group_name="", host="", organ="", symptom=""):
+    def search(self, query="", group_name="", host="", organ="", symptom="", favorites_only=False):
         query = (query or "").strip()
         group_name = (group_name or "").strip()
         host = (host or "").strip()
         organ = (organ or "").strip()
         symptom = (symptom or "").strip()
+        favorites_only = bool(favorites_only)
         clauses = []
         params = []
+
+        if favorites_only:
+            clauses.append("favorite = 1")
 
         if group_name and group_name != "TÜMÜ":
             clauses.append("group_name = ?")
@@ -206,6 +256,7 @@ class Database(object):
             "hosts", "affected_organs", "symptoms", "pathogen_features",
             "disease_cycle", "epidemiology", "differential_diagnosis",
             "cultural_control", "biological_control", "chemical_control",
+            "distribution_turkey", "distribution_world", "climate_notes",
             "sources", "notes"
         ]
         if query:
@@ -224,7 +275,7 @@ class Database(object):
 
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         sql = (
-            "SELECT id, group_name, scientific_name, disease_name "
+            "SELECT id, group_name, scientific_name, disease_name, favorite "
             "FROM diseases" + where +
             " ORDER BY scientific_name COLLATE NOCASE, disease_name COLLATE NOCASE"
         )
@@ -246,40 +297,80 @@ class Database(object):
                     terms.add(part)
         return sorted(terms, key=lambda value: value.lower())
 
-    def diagnose(self, host="", organ="", symptom=""):
+    def diagnose(self, host="", organ="", symptom="", group_name=""):
         host = (host or "").strip().lower()
         organ = (organ or "").strip().lower()
-        symptom_words = [w for w in re.split(r"\s+", (symptom or "").strip().lower()) if len(w) > 2]
+        group_name = (group_name or "").strip().lower()
+        symptom_text = (symptom or "").strip().lower()
+        symptom_words = [w for w in re.findall(r"[\wçğıöşüÇĞİÖŞÜ]+", symptom_text) if len(w) > 2]
         rows = self.conn.execute(
             """SELECT id, group_name, scientific_name, disease_name,
-                      hosts, affected_organs, symptoms
+                      hosts, affected_organs, symptoms, epidemiology,
+                      differential_diagnosis
                FROM diseases"""
         ).fetchall()
         results = []
         for row in rows:
             score = 0
             matched = []
+            row_group = (row["group_name"] or "").lower()
             hosts = (row["hosts"] or "").lower()
             organs = (row["affected_organs"] or "").lower()
             symptoms = (row["symptoms"] or "").lower()
+            extra_text = "{} {}".format(
+                row["epidemiology"] or "",
+                row["differential_diagnosis"] or "",
+            ).lower()
+
+            if group_name and group_name != "tümü":
+                if group_name == row_group:
+                    score += 2
+                    matched.append("etmen grubu")
+                else:
+                    continue
+
             if host:
                 if host in hosts:
-                    score += 4
+                    score += 6
                     matched.append("konukçu")
                 else:
-                    continue
+                    host_tokens = [w for w in host.split() if len(w) > 2]
+                    partial = sum(1 for word in host_tokens if word in hosts)
+                    if partial:
+                        score += partial * 2
+                        matched.append("kısmi konukçu")
+                    else:
+                        continue
+
             if organ:
                 if organ in organs:
-                    score += 3
+                    score += 5
                     matched.append("organ")
                 else:
-                    continue
+                    organ_tokens = [w for w in organ.split() if len(w) > 2]
+                    partial = sum(1 for word in organ_tokens if word in organs)
+                    if partial:
+                        score += partial * 2
+                        matched.append("kısmi organ")
+                    else:
+                        continue
+
             if symptom_words:
-                hit_count = sum(1 for word in symptom_words if word in symptoms)
-                if not hit_count:
+                exact_phrase = bool(symptom_text and symptom_text in symptoms)
+                symptom_hits = sum(1 for word in symptom_words if word in symptoms)
+                context_hits = sum(1 for word in symptom_words if word in extra_text)
+                if exact_phrase:
+                    score += 8
+                    matched.append("tam belirti")
+                if symptom_hits:
+                    score += symptom_hits * 3
+                    matched.append("{} belirti sözcüğü".format(symptom_hits))
+                if context_hits:
+                    score += context_hits
+                    matched.append("{} ek bağlam".format(context_hits))
+                if not exact_phrase and not symptom_hits and not context_hits:
                     continue
-                score += hit_count * 2
-                matched.append("{} belirti sözcüğü".format(hit_count))
+
             if score:
                 results.append((score, row, ", ".join(matched)))
         results.sort(key=lambda item: (-item[0], item[1]["scientific_name"].lower()))
@@ -291,7 +382,7 @@ class Database(object):
     def add(self, data):
         now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         fields = [f for f in ALL_DB_FIELDS if f not in ("id", "created_at", "updated_at")]
-        values = [data.get(f, "") for f in fields]
+        values = [data.get(f, 0 if f == "favorite" else "") for f in fields]
         sql = "INSERT INTO diseases ({}, created_at, updated_at) VALUES ({}, ?, ?)".format(
             ", ".join(fields), ", ".join(["?"] * len(fields))
         )
@@ -303,7 +394,7 @@ class Database(object):
         now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         fields = [f for f in ALL_DB_FIELDS if f not in ("id", "created_at", "updated_at")]
         assignments = ", ".join([f + " = ?" for f in fields])
-        values = [data.get(f, "") for f in fields]
+        values = [data.get(f, 0 if f == "favorite" else "") for f in fields]
         self.conn.execute(
             "UPDATE diseases SET {}, updated_at = ? WHERE id = ?".format(assignments),
             values + [now, disease_id],
@@ -343,6 +434,51 @@ class Database(object):
             writer.writeheader()
             for row in rows:
                 writer.writerow(dict(row))
+
+    def toggle_favorite(self, disease_id):
+        row = self.get(disease_id)
+        if not row:
+            return False
+        new_value = 0 if row["favorite"] else 1
+        self.conn.execute("UPDATE diseases SET favorite = ? WHERE id = ?", (new_value, disease_id))
+        self.conn.commit()
+        return bool(new_value)
+
+    def references(self, disease_id):
+        return self.conn.execute(
+            "SELECT * FROM disease_references WHERE disease_id = ? ORDER BY created_at DESC, id DESC",
+            (disease_id,),
+        ).fetchall()
+
+    def add_reference(self, disease_id, source_type, citation, identifier=""):
+        now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur = self.conn.execute(
+            """INSERT INTO disease_references
+               (disease_id, source_type, citation, identifier, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (disease_id, source_type, citation, identifier, now),
+        )
+        self.conn.commit()
+        return cur.lastrowid
+
+    def delete_reference(self, reference_id):
+        self.conn.execute("DELETE FROM disease_references WHERE id = ?", (reference_id,))
+        self.conn.commit()
+
+    def statistics(self):
+        group_rows = self.conn.execute(
+            """SELECT CASE WHEN group_name = '' THEN '(Grupsuz)' ELSE group_name END AS label,
+                      COUNT(*) AS total
+               FROM diseases GROUP BY group_name ORDER BY total DESC, label"""
+        ).fetchall()
+        return {
+            "total": self.count(),
+            "favorites": self.conn.execute("SELECT COUNT(*) FROM diseases WHERE favorite = 1").fetchone()[0],
+            "photos": self.conn.execute("SELECT COUNT(*) FROM attachments WHERE file_type = 'image'").fetchone()[0],
+            "documents": self.conn.execute("SELECT COUNT(*) FROM attachments WHERE file_type <> 'image'").fetchone()[0],
+            "references": self.conn.execute("SELECT COUNT(*) FROM disease_references").fetchone()[0],
+            "groups": group_rows,
+        }
 
     def image_attachments(self, disease_id):
         return self.conn.execute(
@@ -414,10 +550,12 @@ class DiseaseEditor(tk.Toplevel):
         basic = ttk.Frame(notebook, padding=12)
         biology = ttk.Frame(notebook, padding=12)
         control = ttk.Frame(notebook, padding=12)
+        distribution = ttk.Frame(notebook, padding=12)
         references = ttk.Frame(notebook, padding=12)
         notebook.add(basic, text="Temel bilgiler")
         notebook.add(biology, text="Belirti ve biyoloji")
         notebook.add(control, text="Mücadele")
+        notebook.add(distribution, text="Dağılım")
         notebook.add(references, text="Kaynak ve not")
 
         basic.columnconfigure(1, weight=1)
@@ -707,11 +845,15 @@ class MainWindow(tk.Tk):
         self.host_filter = ""
         self.organ_filter = ""
         self.symptom_filter = ""
+        self.favorites_only_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar()
         self.header_scientific = tk.StringVar(value="Bir kayıt seçin")
         self.header_disease = tk.StringVar(value="")
         self.header_group = tk.StringVar(value="")
         self.detail_texts = {}
+        self.summary_photo = None
+        self.summary_photo_label = None
+        self.summary_text = None
 
         self.build_ui()
         self.refresh_groups()
@@ -730,6 +872,11 @@ class MainWindow(tk.Tk):
         ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=8)
         ttk.Button(toolbar, text="Gelişmiş filtre", command=self.open_advanced_filter).pack(side="left")
         ttk.Button(toolbar, text="Teşhis sihirbazı", command=self.open_diagnosis_wizard).pack(side="left", padx=4)
+        ttk.Button(toolbar, text="İstatistik", command=self.open_statistics).pack(side="left")
+        ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=8)
+        ttk.Button(toolbar, text="Favori ★", command=self.toggle_favorite).pack(side="left")
+        ttk.Button(toolbar, text="Kaynaklar", command=self.open_reference_manager).pack(side="left", padx=4)
+        ttk.Button(toolbar, text="PDF raporu", command=self.export_pdf_report).pack(side="left")
 
         paned = ttk.Panedwindow(self, orient="horizontal")
         paned.pack(fill="both", expand=True, padx=8, pady=(0, 8))
@@ -747,6 +894,7 @@ class MainWindow(tk.Tk):
         ttk.Label(filter_frame, text="Grup").grid(row=0, column=1, sticky="w")
         self.group_combo = ttk.Combobox(filter_frame, textvariable=self.group_var, state="readonly", width=22)
         self.group_combo.grid(row=1, column=1, sticky="ew")
+        ttk.Checkbutton(filter_frame, text="Yalnız favoriler", variable=self.favorites_only_var, command=self.refresh_list).grid(row=2, column=0, sticky="w", pady=(4, 0))
         ttk.Button(filter_frame, text="Temizle", command=self.clear_filters).grid(row=1, column=2, padx=(5, 0))
         filter_frame.columnconfigure(0, weight=1)
         search.bind("<KeyRelease>", lambda _e: self.after_idle(self.refresh_list))
@@ -775,10 +923,21 @@ class MainWindow(tk.Tk):
         notebook = ttk.Notebook(right)
         notebook.pack(fill="both", expand=True)
 
+        summary_tab = ttk.Frame(notebook, padding=10)
+        notebook.add(summary_tab, text="Bilgi kartı")
+        summary_tab.columnconfigure(1, weight=1)
+        summary_tab.rowconfigure(0, weight=1)
+        self.summary_photo_label = ttk.Label(summary_tab, text="Ana fotoğraf yok", anchor="center", relief="solid")
+        self.summary_photo_label.grid(row=0, column=0, sticky="n", padx=(0, 10))
+        self.summary_text = tk.Text(summary_tab, width=60, height=24, wrap="word", relief="solid", borderwidth=1)
+        self.summary_text.grid(row=0, column=1, sticky="nsew")
+        self.summary_text.configure(state="disabled")
+
         tabs = [
             ("Temel", ["synonyms", "hosts", "affected_organs"]),
             ("Belirti ve biyoloji", ["symptoms", "pathogen_features", "disease_cycle", "epidemiology", "differential_diagnosis"]),
             ("Mücadele", ["cultural_control", "biological_control", "chemical_control"]),
+            ("Dağılım", ["distribution_turkey", "distribution_world", "climate_notes"]),
             ("Kaynak ve not", ["sources", "notes"]),
         ]
         labels = dict(LONG_FIELDS)
@@ -834,10 +993,10 @@ class MainWindow(tk.Tk):
         current = select_id or self.selected_id
         for item in self.tree.get_children():
             self.tree.delete(item)
-        rows = self.db.search(self.search_var.get(), self.group_var.get(), self.host_filter, self.organ_filter, self.symptom_filter)
+        rows = self.db.search(self.search_var.get(), self.group_var.get(), self.host_filter, self.organ_filter, self.symptom_filter, self.favorites_only_var.get())
         selected_item = None
         for row in rows:
-            item = self.tree.insert("", "end", iid=str(row["id"]), values=(row["scientific_name"], row["disease_name"]))
+            item = self.tree.insert("", "end", iid=str(row["id"]), values=(("★ " if row["favorite"] else "") + row["scientific_name"], row["disease_name"]))
             if current and int(row["id"]) == int(current):
                 selected_item = item
         self.status_var.set("{} kayıt gösteriliyor · veritabanında toplam {} kayıt".format(len(rows), self.db.count()))
@@ -866,7 +1025,8 @@ class MainWindow(tk.Tk):
         self.selected_id = disease_id
         self.header_scientific.set(record["scientific_name"])
         self.header_disease.set(record["disease_name"])
-        self.header_group.set(record["group_name"])
+        self.header_group.set(("★ " if record["favorite"] else "") + record["group_name"])
+        self.refresh_summary_card(record)
         for field, text in self.detail_texts.items():
             text.configure(state="normal")
             text.delete("1.0", "end")
@@ -879,6 +1039,13 @@ class MainWindow(tk.Tk):
         self.header_scientific.set("Kayıt bulunamadı")
         self.header_disease.set("")
         self.header_group.set("")
+        self.summary_photo = None
+        if self.summary_photo_label:
+            self.summary_photo_label.configure(image="", text="Ana fotoğraf yok")
+        if self.summary_text:
+            self.summary_text.configure(state="normal")
+            self.summary_text.delete("1.0", "end")
+            self.summary_text.configure(state="disabled")
         for text in self.detail_texts.values():
             text.configure(state="normal")
             text.delete("1.0", "end")
@@ -1042,6 +1209,7 @@ class MainWindow(tk.Tk):
         self.host_filter = ""
         self.organ_filter = ""
         self.symptom_filter = ""
+        self.favorites_only_var.set(False)
         self.refresh_list()
 
     def open_advanced_filter(self):
@@ -1100,14 +1268,17 @@ class MainWindow(tk.Tk):
         host_var = tk.StringVar()
         organ_var = tk.StringVar()
         symptom_var = tk.StringVar()
+        group_diag_var = tk.StringVar(value="TÜMÜ")
 
-        ttk.Label(top, text="Konukçu").grid(row=0, column=0, sticky="w")
-        ttk.Label(top, text="Organ").grid(row=0, column=1, sticky="w", padx=(6, 0))
-        ttk.Label(top, text="Belirti / anahtar sözcükler").grid(row=0, column=2, sticky="w", padx=(6, 0))
-        ttk.Combobox(top, textvariable=host_var, values=self.db.distinct_terms("hosts"), state="normal").grid(row=1, column=0, sticky="ew")
-        ttk.Combobox(top, textvariable=organ_var, values=self.db.distinct_terms("affected_organs"), state="normal").grid(row=1, column=1, sticky="ew", padx=(6, 0))
-        ttk.Entry(top, textvariable=symptom_var).grid(row=1, column=2, sticky="ew", padx=(6, 0))
-        for col in range(3):
+        ttk.Label(top, text="Etmen grubu").grid(row=0, column=0, sticky="w")
+        ttk.Label(top, text="Konukçu").grid(row=0, column=1, sticky="w", padx=(6, 0))
+        ttk.Label(top, text="Organ").grid(row=0, column=2, sticky="w", padx=(6, 0))
+        ttk.Label(top, text="Belirti / anahtar sözcükler").grid(row=0, column=3, sticky="w", padx=(6, 0))
+        ttk.Combobox(top, textvariable=group_diag_var, values=["TÜMÜ"] + self.db.list_groups(), state="readonly").grid(row=1, column=0, sticky="ew")
+        ttk.Combobox(top, textvariable=host_var, values=self.db.distinct_terms("hosts"), state="normal").grid(row=1, column=1, sticky="ew", padx=(6, 0))
+        ttk.Combobox(top, textvariable=organ_var, values=self.db.distinct_terms("affected_organs"), state="normal").grid(row=1, column=2, sticky="ew", padx=(6, 0))
+        ttk.Entry(top, textvariable=symptom_var).grid(row=1, column=3, sticky="ew", padx=(6, 0))
+        for col in range(4):
             top.columnconfigure(col, weight=1)
 
         result_frame = ttk.Frame(dialog, padding=(10, 0, 10, 10))
@@ -1134,7 +1305,7 @@ class MainWindow(tk.Tk):
         def run_diagnosis():
             for item in result_tree.get_children():
                 result_tree.delete(item)
-            results = self.db.diagnose(host_var.get(), organ_var.get(), symptom_var.get())
+            results = self.db.diagnose(host_var.get(), organ_var.get(), symptom_var.get(), group_diag_var.get())
             for score, row, matched in results:
                 result_tree.insert(
                     "", "end", iid=str(row["id"]),
@@ -1161,6 +1332,319 @@ class MainWindow(tk.Tk):
         ttk.Button(buttons, text="Olası hastalıkları bul", command=run_diagnosis).pack(side="right")
         result_tree.bind("<Double-1>", open_result)
         dialog.bind("<Return>", lambda _e: run_diagnosis())
+
+    def refresh_summary_card(self, record):
+        if self.summary_text:
+            sections = [
+                ("Hastalık", record["disease_name"]),
+                ("Etmen grubu", record["group_name"]),
+                ("Konukçular", record["hosts"]),
+                ("Etkilenen organlar", record["affected_organs"]),
+                ("Belirtiler", record["symptoms"]),
+                ("Epidemiyoloji", record["epidemiology"]),
+                ("Türkiye dağılımı", record["distribution_turkey"]),
+                ("Dünya dağılımı", record["distribution_world"]),
+                ("Mücadele özeti", "\n".join(filter(None, [
+                    record["cultural_control"],
+                    record["biological_control"],
+                    record["chemical_control"],
+                ]))),
+            ]
+            self.summary_text.configure(state="normal")
+            self.summary_text.delete("1.0", "end")
+            for title, value in sections:
+                value = (value or "").strip()
+                if value:
+                    self.summary_text.insert("end", title + "\n", "heading")
+                    self.summary_text.insert("end", value + "\n\n")
+            self.summary_text.tag_configure("heading", font=("Segoe UI", 9, "bold"))
+            self.summary_text.configure(state="disabled")
+
+        self.summary_photo = None
+        if self.summary_photo_label:
+            self.summary_photo_label.configure(image="", text="Ana fotoğraf yok")
+        photos = self.db.image_attachments(record["id"])
+        if not photos or not PIL_AVAILABLE or not self.summary_photo_label:
+            return
+        path = os.path.join(self.paths.base, photos[0]["relative_path"])
+        if not os.path.isfile(path):
+            return
+        try:
+            image = Image.open(path).convert("RGB")
+            image.thumbnail((300, 260), Image.LANCZOS)
+            self.summary_photo = ImageTk.PhotoImage(image)
+            self.summary_photo_label.configure(image=self.summary_photo, text="")
+        except Exception:
+            self.summary_photo_label.configure(image="", text="Fotoğraf önizlenemedi")
+
+    def toggle_favorite(self):
+        if not self.selected_id:
+            return
+        is_favorite = self.db.toggle_favorite(self.selected_id)
+        self.refresh_list(select_id=self.selected_id)
+        self.status_var.set("Kayıt favorilere eklendi." if is_favorite else "Kayıt favorilerden çıkarıldı.")
+
+    def open_reference_manager(self):
+        if not self.selected_id:
+            messagebox.showinfo(APP_NAME, "Önce bir hastalık kaydı seçin.", parent=self)
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("Kaynak yönetimi")
+        dialog.geometry("850x480")
+        dialog.minsize(650, 380)
+        dialog.transient(self)
+
+        tree = ttk.Treeview(
+            dialog,
+            columns=("type", "citation", "identifier"),
+            show="headings",
+            selectmode="browse",
+        )
+        for column, title, width in [
+            ("type", "Tür", 100),
+            ("citation", "Kaynak künyesi", 480),
+            ("identifier", "DOI / URL / ISBN", 220),
+        ]:
+            tree.heading(column, text=title)
+            tree.column(column, width=width, anchor="w")
+        tree.pack(fill="both", expand=True, padx=10, pady=10)
+
+        def refresh():
+            for item in tree.get_children():
+                tree.delete(item)
+            for row in self.db.references(self.selected_id):
+                tree.insert("", "end", iid=str(row["id"]), values=(
+                    row["source_type"], row["citation"], row["identifier"]
+                ))
+
+        def add():
+            add_dialog = tk.Toplevel(dialog)
+            add_dialog.title("Kaynak ekle")
+            add_dialog.transient(dialog)
+            add_dialog.grab_set()
+            frame = ttk.Frame(add_dialog, padding=12)
+            frame.pack(fill="both", expand=True)
+            type_var = tk.StringVar(value="Makale")
+            citation_var = tk.StringVar()
+            identifier_var = tk.StringVar()
+            ttk.Label(frame, text="Tür").grid(row=0, column=0, sticky="w", pady=4)
+            ttk.Combobox(
+                frame, textvariable=type_var,
+                values=["Makale", "Kitap", "Tez", "Web", "Rapor", "Diğer"],
+                state="readonly", width=18
+            ).grid(row=0, column=1, sticky="ew", pady=4)
+            ttk.Label(frame, text="Kaynak künyesi").grid(row=1, column=0, sticky="w", pady=4)
+            ttk.Entry(frame, textvariable=citation_var, width=70).grid(row=1, column=1, sticky="ew", pady=4)
+            ttk.Label(frame, text="DOI / URL / ISBN").grid(row=2, column=0, sticky="w", pady=4)
+            ttk.Entry(frame, textvariable=identifier_var).grid(row=2, column=1, sticky="ew", pady=4)
+
+            def save():
+                if not citation_var.get().strip():
+                    messagebox.showwarning(APP_NAME, "Kaynak künyesi boş bırakılamaz.", parent=add_dialog)
+                    return
+                self.db.add_reference(
+                    self.selected_id,
+                    type_var.get(),
+                    citation_var.get(),
+                    identifier_var.get(),
+                )
+                add_dialog.destroy()
+                refresh()
+
+            buttons = ttk.Frame(frame)
+            buttons.grid(row=3, column=0, columnspan=2, sticky="e", pady=(10, 0))
+            ttk.Button(buttons, text="İptal", command=add_dialog.destroy).pack(side="right", padx=(5, 0))
+            ttk.Button(buttons, text="Kaydet", command=save).pack(side="right")
+            frame.columnconfigure(1, weight=1)
+
+        def remove():
+            selection = tree.selection()
+            if not selection:
+                return
+            if messagebox.askyesno(APP_NAME, "Seçili kaynak silinsin mi?", parent=dialog):
+                self.db.delete_reference(int(selection[0]))
+                refresh()
+
+        def open_identifier(_event=None):
+            selection = tree.selection()
+            if not selection:
+                return
+            row = next((r for r in self.db.references(self.selected_id) if str(r["id"]) == selection[0]), None)
+            if not row or not row["identifier"]:
+                return
+            identifier = row["identifier"].strip()
+            if identifier.lower().startswith(("http://", "https://")):
+                try:
+                    os.startfile(identifier)
+                except Exception as exc:
+                    messagebox.showerror(APP_NAME, "Bağlantı açılamadı:\n{}".format(exc), parent=dialog)
+
+        buttons = ttk.Frame(dialog, padding=(10, 0, 10, 10))
+        buttons.pack(fill="x")
+        ttk.Button(buttons, text="Kapat", command=dialog.destroy).pack(side="right")
+        ttk.Button(buttons, text="Sil", command=remove).pack(side="right", padx=5)
+        ttk.Button(buttons, text="Yeni kaynak", command=add).pack(side="right")
+        tree.bind("<Double-1>", open_identifier)
+        refresh()
+
+    def open_statistics(self):
+        stats = self.db.statistics()
+        dialog = tk.Toplevel(self)
+        dialog.title("Arşiv istatistikleri")
+        dialog.geometry("620x520")
+        dialog.minsize(500, 400)
+        dialog.transient(self)
+
+        summary = ttk.LabelFrame(dialog, text="Genel", padding=10)
+        summary.pack(fill="x", padx=10, pady=10)
+        values = [
+            ("Toplam hastalık kaydı", stats["total"]),
+            ("Favori kayıt", stats["favorites"]),
+            ("Fotoğraf", stats["photos"]),
+            ("Belge", stats["documents"]),
+            ("Yapılandırılmış kaynak", stats["references"]),
+        ]
+        for row, (label, value) in enumerate(values):
+            ttk.Label(summary, text=label).grid(row=row, column=0, sticky="w", pady=2)
+            ttk.Label(summary, text=str(value), font=("Segoe UI", 9, "bold")).grid(row=row, column=1, sticky="e", padx=(20, 0))
+
+        group_frame = ttk.LabelFrame(dialog, text="Etmen grupları", padding=8)
+        group_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        group_tree = ttk.Treeview(group_frame, columns=("group", "count"), show="headings")
+        group_tree.heading("group", text="Grup")
+        group_tree.heading("count", text="Kayıt sayısı")
+        group_tree.column("group", width=360)
+        group_tree.column("count", width=100, anchor="e")
+        group_tree.pack(fill="both", expand=True)
+        for row in stats["groups"]:
+            group_tree.insert("", "end", values=(row["label"], row["total"]))
+
+    def _register_pdf_font(self):
+        if not REPORTLAB_AVAILABLE:
+            return "Helvetica", "Helvetica-Bold"
+        try:
+            fonts_dir = os.path.join(os.path.dirname(reportlab.__file__), "fonts")
+            regular = os.path.join(fonts_dir, "Vera.ttf")
+            bold = os.path.join(fonts_dir, "VeraBd.ttf")
+            if os.path.isfile(regular):
+                if "Vera" not in pdfmetrics.getRegisteredFontNames():
+                    pdfmetrics.registerFont(TTFont("Vera", regular))
+                if os.path.isfile(bold) and "Vera-Bold" not in pdfmetrics.getRegisteredFontNames():
+                    pdfmetrics.registerFont(TTFont("Vera-Bold", bold))
+                return "Vera", "Vera-Bold" if os.path.isfile(bold) else "Vera"
+        except Exception:
+            pass
+        return "Helvetica", "Helvetica-Bold"
+
+    def export_pdf_report(self):
+        if not self.selected_id:
+            messagebox.showinfo(APP_NAME, "Önce bir hastalık kaydı seçin.", parent=self)
+            return
+        if not REPORTLAB_AVAILABLE:
+            messagebox.showerror(
+                APP_NAME,
+                "PDF raporu için ReportLab bileşeni bulunamadı.",
+                parent=self,
+            )
+            return
+        record = self.db.get(self.selected_id)
+        safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", record["scientific_name"]).strip("_") or "hastalik"
+        output = filedialog.asksaveasfilename(
+            title="PDF hastalık raporu",
+            initialdir=self.paths.exports,
+            initialfile=safe_name + ".pdf",
+            defaultextension=".pdf",
+            filetypes=[("PDF dosyası", "*.pdf")],
+        )
+        if not output:
+            return
+        try:
+            font_name, bold_name = self._register_pdf_font()
+            styles = getSampleStyleSheet()
+            title_style = ParagraphStyle(
+                "FitoTitle", parent=styles["Title"], fontName=bold_name,
+                fontSize=18, leading=22, alignment=TA_CENTER, spaceAfter=10
+            )
+            heading_style = ParagraphStyle(
+                "FitoHeading", parent=styles["Heading2"], fontName=bold_name,
+                fontSize=11, leading=14, spaceBefore=8, spaceAfter=4
+            )
+            body_style = ParagraphStyle(
+                "FitoBody", parent=styles["BodyText"], fontName=font_name,
+                fontSize=9, leading=13, spaceAfter=4
+            )
+
+            doc = SimpleDocTemplate(
+                output, pagesize=A4,
+                rightMargin=1.6 * cm, leftMargin=1.6 * cm,
+                topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+                title=record["scientific_name"],
+                author=APP_NAME,
+            )
+            story = [
+                Paragraph(record["scientific_name"], title_style),
+                Paragraph(record["disease_name"], ParagraphStyle(
+                    "Sub", parent=body_style, fontName=bold_name,
+                    fontSize=12, alignment=TA_CENTER, spaceAfter=10
+                )),
+            ]
+
+            photos = self.db.image_attachments(self.selected_id)
+            if photos:
+                image_path = os.path.join(self.paths.base, photos[0]["relative_path"])
+                if os.path.isfile(image_path):
+                    try:
+                        image = RLImage(image_path)
+                        image._restrictSize(16 * cm, 8 * cm)
+                        story.extend([image, Spacer(1, 0.3 * cm)])
+                    except Exception:
+                        pass
+
+            fields = [
+                ("Etmen grubu", "group_name"),
+                ("Sinonimler / eski adlar", "synonyms"),
+                ("Konukçular", "hosts"),
+                ("Etkilenen organlar", "affected_organs"),
+                ("Belirtiler", "symptoms"),
+                ("Etmenin özellikleri", "pathogen_features"),
+                ("Hastalık döngüsü", "disease_cycle"),
+                ("Epidemiyoloji", "epidemiology"),
+                ("Ayırıcı teşhis", "differential_diagnosis"),
+                ("Türkiye dağılımı", "distribution_turkey"),
+                ("Dünya dağılımı", "distribution_world"),
+                ("İklim / çevre notları", "climate_notes"),
+                ("Kültürel mücadele", "cultural_control"),
+                ("Biyolojik mücadele", "biological_control"),
+                ("Kimyasal mücadele / prensipler", "chemical_control"),
+                ("Kaynaklar", "sources"),
+                ("Kişisel notlar", "notes"),
+            ]
+            for title, field in fields:
+                value = (record[field] or "").strip()
+                if value:
+                    story.append(Paragraph(title, heading_style))
+                    story.append(Paragraph(value.replace("\n", "<br/>"), body_style))
+
+            refs = self.db.references(self.selected_id)
+            if refs:
+                story.append(Paragraph("Yapılandırılmış kaynakça", heading_style))
+                for ref in refs:
+                    line = "{}: {}".format(ref["source_type"], ref["citation"])
+                    if ref["identifier"]:
+                        line += " - " + ref["identifier"]
+                    story.append(Paragraph("• " + line, body_style))
+
+            story.append(Spacer(1, 0.4 * cm))
+            story.append(Paragraph(
+                "{} {} tarafından {} tarihinde oluşturuldu.".format(
+                    APP_NAME, APP_VERSION, dt.datetime.now().strftime("%d.%m.%Y %H:%M")
+                ),
+                ParagraphStyle("Footer", parent=body_style, fontSize=7, textColor=colors.grey)
+            ))
+            doc.build(story)
+            messagebox.showinfo(APP_NAME, "PDF raporu oluşturuldu:\n{}".format(output), parent=self)
+        except Exception as exc:
+            messagebox.showerror(APP_NAME, "PDF raporu oluşturulamadı:\n{}".format(exc), parent=self)
 
     def open_gallery(self):
         if not self.selected_id:
@@ -1358,6 +1842,8 @@ def self_test():
             "hosts": "Test konukçusu",
             "affected_organs": "Test yaprağı",
             "symptoms": "Test lekesi ve solgunluk",
+            "distribution_turkey": "Ankara",
+            "favorite": 1,
         })
         assert db.get(new_id)["scientific_name"] == "Testus exemplum"
 
@@ -1368,6 +1854,8 @@ def self_test():
             "hosts": "Test konukçusu",
             "affected_organs": "Test yaprağı",
             "symptoms": "Test lekesi ve solgunluk",
+            "distribution_turkey": "Ankara",
+            "favorite": 1,
         })
         assert db.get(new_id)["disease_name"] == "Güncel test hastalığı"
 
@@ -1375,10 +1863,13 @@ def self_test():
         assert any(row["id"] == new_id for row in db.search("Testus exemplum"))
         assert any(row["id"] == new_id for row in db.search(host="Test konukçusu"))
         assert any(item[1]["id"] == new_id for item in db.diagnose(
-            host="Test konukçusu",
-            organ="Test yaprağı",
-            symptom="leke",
+            host="Test konukçusu", organ="Test yaprağı", symptom="leke", group_name="TEST"
         ))
+        assert db.search(favorites_only=True)
+        ref_id = db.add_reference(new_id, "Makale", "Test kaynak", "10.0000/test")
+        assert db.references(new_id)
+        assert db.statistics()["references"] >= 1
+        db.delete_reference(ref_id)
 
         db.delete(new_id)
         assert db.get(new_id) is None
