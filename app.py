@@ -26,7 +26,7 @@ except ImportError:  # pragma: no cover
     import ttk
 
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),
@@ -271,17 +271,34 @@ class DiseaseEditor(tk.Toplevel):
     def __init__(self, master, groups, initial=None, on_save=None):
         tk.Toplevel.__init__(self, master)
         self.title("Kayıt düzenle" if initial else "Yeni kayıt")
-        self.geometry("820x700")
-        self.minsize(720, 580)
         self.transient(master)
         self.grab_set()
+
+        # Windows 7 ve düşük çözünürlüklü ekranlarda pencerenin
+        # görev çubuğunun altında kalmasını önle.
+        self.update_idletasks()
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        win_w = min(900, max(700, screen_w - 80))
+        win_h = min(700, max(500, screen_h - 120))
+        pos_x = max(0, (screen_w - win_w) // 2)
+        pos_y = max(0, (screen_h - win_h) // 2)
+        self.geometry("{}x{}+{}+{}".format(win_w, win_h, pos_x, pos_y))
+        self.minsize(min(700, win_w), min(500, win_h))
         self.initial = dict(initial) if initial else {}
         self.on_save = on_save
         self.vars = {}
         self.texts = {}
 
+        # Alt düğme çubuğunu önce paketle; böylece pencere küçülse bile
+        # Kaydet ve İptal düğmeleri görünür kalır.
+        footer = ttk.Frame(self, padding=(10, 8, 10, 10))
+        footer.pack(side="bottom", fill="x")
+        ttk.Button(footer, text="İptal", command=self.destroy).pack(side="right", padx=(6, 0))
+        ttk.Button(footer, text="Kaydet", command=self.save).pack(side="right")
+
         notebook = ttk.Notebook(self)
-        notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        notebook.pack(side="top", fill="both", expand=True, padx=10, pady=(10, 0))
 
         basic = ttk.Frame(notebook, padding=12)
         biology = ttk.Frame(notebook, padding=12)
@@ -346,11 +363,9 @@ class DiseaseEditor(tk.Toplevel):
                 text.grid(row=idx * 2 + 1, column=0, sticky="nsew", pady=(0, 7))
                 self.texts[field] = text
 
-        footer = ttk.Frame(self, padding=(10, 0, 10, 10))
-        footer.pack(fill="x")
-        ttk.Button(footer, text="İptal", command=self.destroy).pack(side="right", padx=(6, 0))
-        ttk.Button(footer, text="Kaydet", command=self.save).pack(side="right")
         self.bind("<Escape>", lambda _e: self.destroy())
+        self.bind("<Control-s>", lambda _e: self.save())
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
 
     def save(self):
         data = {}
