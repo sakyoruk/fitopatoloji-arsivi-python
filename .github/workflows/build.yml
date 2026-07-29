@@ -1,12 +1,21 @@
-name: Test workflow
+name: Build
 
 on:
   workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: windows-2022
 
     steps:
-      - name: Test
-        run: echo Workflow calisiyor
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: Python sürümü
+        run: python --version
+
+      - name: Pip sürümü
+        run: pip --version
