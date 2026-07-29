@@ -9,6 +9,7 @@ from __future__ import print_function
 import csv
 import datetime as dt
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -27,7 +28,7 @@ except ImportError:  # pragma: no cover
     import ttk
 
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.7.0"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),
@@ -176,23 +177,40 @@ class Database(object):
             "SELECT DISTINCT group_name FROM diseases WHERE group_name <> '' ORDER BY group_name COLLATE NOCASE"
         ).fetchall()]
 
-    def search(self, query="", group_name=""):
+    def search(self, query="", group_name="", host="", organ="", symptom=""):
         query = (query or "").strip()
         group_name = (group_name or "").strip()
+        host = (host or "").strip()
+        organ = (organ or "").strip()
+        symptom = (symptom or "").strip()
         clauses = []
         params = []
+
         if group_name and group_name != "TÜMÜ":
             clauses.append("group_name = ?")
             params.append(group_name)
+
+        searchable = [
+            "group_name", "scientific_name", "synonyms", "disease_name",
+            "hosts", "affected_organs", "symptoms", "pathogen_features",
+            "disease_cycle", "epidemiology", "differential_diagnosis",
+            "cultural_control", "biological_control", "chemical_control",
+            "sources", "notes"
+        ]
         if query:
             like = "%" + query + "%"
-            clauses.append(
-                "(" + " OR ".join([
-                    "scientific_name LIKE ?", "synonyms LIKE ?", "disease_name LIKE ?",
-                    "hosts LIKE ?", "symptoms LIKE ?", "notes LIKE ?"
-                ]) + ")"
-            )
-            params.extend([like] * 6)
+            clauses.append("(" + " OR ".join([field + " LIKE ?" for field in searchable]) + ")")
+            params.extend([like] * len(searchable))
+        if host:
+            clauses.append("hosts LIKE ?")
+            params.append("%" + host + "%")
+        if organ:
+            clauses.append("affected_organs LIKE ?")
+            params.append("%" + organ + "%")
+        if symptom:
+            clauses.append("symptoms LIKE ?")
+            params.append("%" + symptom + "%")
+
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         sql = (
             "SELECT id, group_name, scientific_name, disease_name "
@@ -200,6 +218,61 @@ class Database(object):
             " ORDER BY scientific_name COLLATE NOCASE, disease_name COLLATE NOCASE"
         )
         return self.conn.execute(sql, params).fetchall()
+
+    def distinct_terms(self, field_name):
+        allowed = {"hosts", "affected_organs", "symptoms"}
+        if field_name not in allowed:
+            return []
+        rows = self.conn.execute(
+            "SELECT {} FROM diseases WHERE {} <> ''".format(field_name, field_name)
+        ).fetchall()
+        terms = set()
+        for row in rows:
+            value = row[0] or ""
+            for part in re.split(r"[,;\n/|]+", value):
+                part = " ".join(part.strip().split())
+                if 2 <= len(part) <= 80:
+                    terms.add(part)
+        return sorted(terms, key=lambda value: value.lower())
+
+    def diagnose(self, host="", organ="", symptom=""):
+        host = (host or "").strip().lower()
+        organ = (organ or "").strip().lower()
+        symptom_words = [w for w in re.split(r"\s+", (symptom or "").strip().lower()) if len(w) > 2]
+        rows = self.conn.execute(
+            """SELECT id, group_name, scientific_name, disease_name,
+                      hosts, affected_organs, symptoms
+               FROM diseases"""
+        ).fetchall()
+        results = []
+        for row in rows:
+            score = 0
+            matched = []
+            hosts = (row["hosts"] or "").lower()
+            organs = (row["affected_organs"] or "").lower()
+            symptoms = (row["symptoms"] or "").lower()
+            if host:
+                if host in hosts:
+                    score += 4
+                    matched.append("konukçu")
+                else:
+                    continue
+            if organ:
+                if organ in organs:
+                    score += 3
+                    matched.append("organ")
+                else:
+                    continue
+            if symptom_words:
+                hit_count = sum(1 for word in symptom_words if word in symptoms)
+                if not hit_count:
+                    continue
+                score += hit_count * 2
+                matched.append("{} belirti sözcüğü".format(hit_count))
+            if score:
+                results.append((score, row, ", ".join(matched)))
+        results.sort(key=lambda item: (-item[0], item[1]["scientific_name"].lower()))
+        return results[:100]
 
     def get(self, disease_id):
         return self.conn.execute("SELECT * FROM diseases WHERE id = ?", (disease_id,)).fetchone()
@@ -398,6 +471,9 @@ class MainWindow(tk.Tk):
 
         self.search_var = tk.StringVar()
         self.group_var = tk.StringVar(value="TÜMÜ")
+        self.host_filter = ""
+        self.organ_filter = ""
+        self.symptom_filter = ""
         self.status_var = tk.StringVar()
         self.header_scientific = tk.StringVar(value="Bir kayıt seçin")
         self.header_disease = tk.StringVar(value="")
@@ -416,7 +492,11 @@ class MainWindow(tk.Tk):
         ttk.Button(toolbar, text="Sil", command=self.delete_record).pack(side="left")
         ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=8)
         ttk.Button(toolbar, text="Yedek oluştur", command=self.create_backup).pack(side="left")
-        ttk.Button(toolbar, text="CSV dışa aktar", command=self.export_csv).pack(side="left", padx=4)
+        ttk.Button(toolbar, text="Yedeği geri yükle", command=self.restore_backup).pack(side="left", padx=4)
+        ttk.Button(toolbar, text="CSV dışa aktar", command=self.export_csv).pack(side="left")
+        ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=8)
+        ttk.Button(toolbar, text="Gelişmiş filtre", command=self.open_advanced_filter).pack(side="left")
+        ttk.Button(toolbar, text="Teşhis sihirbazı", command=self.open_diagnosis_wizard).pack(side="left", padx=4)
 
         paned = ttk.Panedwindow(self, orient="horizontal")
         paned.pack(fill="both", expand=True, padx=8, pady=(0, 8))
@@ -434,6 +514,7 @@ class MainWindow(tk.Tk):
         ttk.Label(filter_frame, text="Grup").grid(row=0, column=1, sticky="w")
         self.group_combo = ttk.Combobox(filter_frame, textvariable=self.group_var, state="readonly", width=22)
         self.group_combo.grid(row=1, column=1, sticky="ew")
+        ttk.Button(filter_frame, text="Temizle", command=self.clear_filters).grid(row=1, column=2, padx=(5, 0))
         filter_frame.columnconfigure(0, weight=1)
         search.bind("<KeyRelease>", lambda _e: self.after_idle(self.refresh_list))
         self.group_combo.bind("<<ComboboxSelected>>", lambda _e: self.refresh_list())
@@ -502,6 +583,7 @@ class MainWindow(tk.Tk):
         attach_buttons.pack(side="right", fill="y", padx=(6, 0))
         ttk.Button(attach_buttons, text="Fotoğraf ekle", command=self.add_photo).pack(fill="x")
         ttk.Button(attach_buttons, text="Belge ekle", command=self.add_document).pack(fill="x", pady=(3, 0))
+        ttk.Button(attach_buttons, text="Önizle", command=self.preview_attachment).pack(fill="x", pady=(3, 0))
         ttk.Button(attach_buttons, text="Aç", command=self.open_attachment).pack(fill="x", pady=3)
         ttk.Button(attach_buttons, text="Kaldır", command=self.remove_attachment).pack(fill="x")
         self.attach_tree.bind("<Double-1>", lambda _e: self.open_attachment())
@@ -519,7 +601,7 @@ class MainWindow(tk.Tk):
         current = select_id or self.selected_id
         for item in self.tree.get_children():
             self.tree.delete(item)
-        rows = self.db.search(self.search_var.get(), self.group_var.get())
+        rows = self.db.search(self.search_var.get(), self.group_var.get(), self.host_filter, self.organ_filter, self.symptom_filter)
         selected_item = None
         for row in rows:
             item = self.tree.insert("", "end", iid=str(row["id"]), values=(row["scientific_name"], row["disease_name"]))
@@ -721,6 +803,185 @@ class MainWindow(tk.Tk):
             return None
         return self.db.get_attachment(int(selection[0]))
 
+    def clear_filters(self):
+        self.search_var.set("")
+        self.group_var.set("TÜMÜ")
+        self.host_filter = ""
+        self.organ_filter = ""
+        self.symptom_filter = ""
+        self.refresh_list()
+
+    def open_advanced_filter(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("Gelişmiş filtre")
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.resizable(False, False)
+
+        values = {
+            "host": tk.StringVar(value=self.host_filter),
+            "organ": tk.StringVar(value=self.organ_filter),
+            "symptom": tk.StringVar(value=self.symptom_filter),
+        }
+        frame = ttk.Frame(dialog, padding=14)
+        frame.pack(fill="both", expand=True)
+        fields = [
+            ("Konukçu", "host", self.db.distinct_terms("hosts")),
+            ("Etkilenen organ", "organ", self.db.distinct_terms("affected_organs")),
+            ("Belirti sözcüğü", "symptom", self.db.distinct_terms("symptoms")),
+        ]
+        for row, (label, key, options) in enumerate(fields):
+            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", pady=5)
+            combo = ttk.Combobox(frame, textvariable=values[key], values=options, width=48, state="normal")
+            combo.grid(row=row, column=1, sticky="ew", pady=5)
+
+        def apply_filter():
+            self.host_filter = values["host"].get().strip()
+            self.organ_filter = values["organ"].get().strip()
+            self.symptom_filter = values["symptom"].get().strip()
+            dialog.destroy()
+            self.refresh_list()
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=3, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        ttk.Button(buttons, text="İptal", command=dialog.destroy).pack(side="right", padx=(5, 0))
+        ttk.Button(buttons, text="Uygula", command=apply_filter).pack(side="right")
+        frame.columnconfigure(1, weight=1)
+        dialog.bind("<Return>", lambda _e: apply_filter())
+        dialog.bind("<Escape>", lambda _e: dialog.destroy())
+        dialog.update_idletasks()
+        dialog.geometry("+{}+{}".format(
+            max(0, self.winfo_rootx() + 120),
+            max(0, self.winfo_rooty() + 100),
+        ))
+
+    def open_diagnosis_wizard(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("Teşhis sihirbazı")
+        dialog.geometry("860x560")
+        dialog.minsize(720, 450)
+        dialog.transient(self)
+
+        top = ttk.Frame(dialog, padding=10)
+        top.pack(fill="x")
+        host_var = tk.StringVar()
+        organ_var = tk.StringVar()
+        symptom_var = tk.StringVar()
+
+        ttk.Label(top, text="Konukçu").grid(row=0, column=0, sticky="w")
+        ttk.Label(top, text="Organ").grid(row=0, column=1, sticky="w", padx=(6, 0))
+        ttk.Label(top, text="Belirti / anahtar sözcükler").grid(row=0, column=2, sticky="w", padx=(6, 0))
+        ttk.Combobox(top, textvariable=host_var, values=self.db.distinct_terms("hosts"), state="normal").grid(row=1, column=0, sticky="ew")
+        ttk.Combobox(top, textvariable=organ_var, values=self.db.distinct_terms("affected_organs"), state="normal").grid(row=1, column=1, sticky="ew", padx=(6, 0))
+        ttk.Entry(top, textvariable=symptom_var).grid(row=1, column=2, sticky="ew", padx=(6, 0))
+        for col in range(3):
+            top.columnconfigure(col, weight=1)
+
+        result_frame = ttk.Frame(dialog, padding=(10, 0, 10, 10))
+        result_frame.pack(fill="both", expand=True)
+        result_tree = ttk.Treeview(
+            result_frame,
+            columns=("score", "scientific", "disease", "match"),
+            show="headings",
+            selectmode="browse",
+        )
+        for column, title, width in [
+            ("score", "Puan", 55),
+            ("scientific", "Etmen", 230),
+            ("disease", "Hastalık", 300),
+            ("match", "Eşleşme", 180),
+        ]:
+            result_tree.heading(column, text=title)
+            result_tree.column(column, width=width, anchor="w")
+        scrollbar = ttk.Scrollbar(result_frame, orient="vertical", command=result_tree.yview)
+        result_tree.configure(yscrollcommand=scrollbar.set)
+        result_tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        def run_diagnosis():
+            for item in result_tree.get_children():
+                result_tree.delete(item)
+            results = self.db.diagnose(host_var.get(), organ_var.get(), symptom_var.get())
+            for score, row, matched in results:
+                result_tree.insert(
+                    "", "end", iid=str(row["id"]),
+                    values=(score, row["scientific_name"], row["disease_name"], matched),
+                )
+            if not results:
+                messagebox.showinfo(APP_NAME, "Bu ölçütlerle eşleşen kayıt bulunamadı.", parent=dialog)
+
+        def open_result(_event=None):
+            selection = result_tree.selection()
+            if not selection:
+                return
+            disease_id = int(selection[0])
+            dialog.destroy()
+            self.search_var.set("")
+            self.group_var.set("TÜMÜ")
+            self.host_filter = self.organ_filter = self.symptom_filter = ""
+            self.refresh_list(select_id=disease_id)
+
+        buttons = ttk.Frame(dialog, padding=(10, 0, 10, 10))
+        buttons.pack(fill="x")
+        ttk.Button(buttons, text="Kapat", command=dialog.destroy).pack(side="right")
+        ttk.Button(buttons, text="Seçili kaydı aç", command=open_result).pack(side="right", padx=5)
+        ttk.Button(buttons, text="Olası hastalıkları bul", command=run_diagnosis).pack(side="right")
+        result_tree.bind("<Double-1>", open_result)
+        dialog.bind("<Return>", lambda _e: run_diagnosis())
+
+    def preview_attachment(self):
+        row = self.selected_attachment()
+        if not row:
+            return
+        path = os.path.join(self.paths.base, row["relative_path"])
+        if not os.path.exists(path):
+            messagebox.showerror(APP_NAME, "Dosya bulunamadı:\n{}".format(path), parent=self)
+            return
+        if row["file_type"] != "image":
+            self.open_attachment()
+            return
+
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in (".png", ".gif", ".ppm", ".pgm"):
+            messagebox.showinfo(
+                APP_NAME,
+                "Bu fotoğraf biçimi uygulama içinde önizlenemiyor.\nVarsayılan görüntüleyiciyle açılacak.",
+                parent=self,
+            )
+            self.open_attachment()
+            return
+
+        try:
+            image = tk.PhotoImage(file=path)
+        except Exception as exc:
+            messagebox.showerror(APP_NAME, "Fotoğraf önizlenemedi:\n{}".format(exc), parent=self)
+            return
+
+        preview = tk.Toplevel(self)
+        preview.title(os.path.basename(path).split("_", 1)[-1])
+        preview.geometry("900x650")
+        preview.minsize(500, 350)
+        preview.transient(self)
+
+        max_w, max_h = 840, 540
+        factor = max(
+            1,
+            int(max(
+                float(image.width()) / max_w,
+                float(image.height()) / max_h
+            ) + 0.999)
+        )
+        shown = image.subsample(factor, factor) if factor > 1 else image
+        label = ttk.Label(preview, image=shown, anchor="center")
+        label.image = shown
+        label.pack(fill="both", expand=True, padx=10, pady=10)
+        ttk.Label(
+            preview,
+            text=row["description"] or "Açıklama yok",
+            anchor="center",
+            wraplength=820,
+        ).pack(fill="x", padx=10, pady=(0, 10))
+
     def open_attachment(self):
         row = self.selected_attachment()
         if not row:
@@ -748,9 +1009,7 @@ class MainWindow(tk.Tk):
                 pass
             self.refresh_attachments()
 
-    def create_backup(self):
-        stamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        zip_path = os.path.join(self.paths.backups, "Fitopatoloji_Yedek_{}.zip".format(stamp))
+    def _write_backup_zip(self, zip_path):
         temp_dir = tempfile.mkdtemp(prefix="fitopatoloji_backup_")
         try:
             db_copy = os.path.join(temp_dir, "fitopatoloji.db")
@@ -763,9 +1022,94 @@ class MainWindow(tk.Tk):
                             full = os.path.join(root, filename)
                             rel = os.path.relpath(full, folder_path)
                             archive.write(full, os.path.join(folder_name, rel))
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def create_backup(self):
+        stamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        zip_path = os.path.join(self.paths.backups, "Fitopatoloji_Yedek_{}.zip".format(stamp))
+        try:
+            self._write_backup_zip(zip_path)
             messagebox.showinfo(APP_NAME, "Yedek oluşturuldu:\n{}".format(zip_path), parent=self)
         except Exception as exc:
             messagebox.showerror(APP_NAME, "Yedek oluşturulamadı:\n{}".format(exc), parent=self)
+
+    def restore_backup(self):
+        backup_path = filedialog.askopenfilename(
+            title="Fitopatoloji yedeğini seç",
+            initialdir=self.paths.backups,
+            filetypes=[("ZIP yedeği", "*.zip")],
+        )
+        if not backup_path:
+            return
+        if not messagebox.askyesno(
+            APP_NAME,
+            "Seçilen yedek geri yüklenecek.\n\nMevcut arşiv önce otomatik olarak güvenlik yedeğine alınacaktır. Devam edilsin mi?",
+            parent=self,
+        ):
+            return
+
+        temp_dir = tempfile.mkdtemp(prefix="fitopatoloji_restore_")
+        safety_path = os.path.join(
+            self.paths.backups,
+            "Geri_Yukleme_Oncesi_{}.zip".format(dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")),
+        )
+        try:
+            self._write_backup_zip(safety_path)
+            with zipfile.ZipFile(backup_path, "r") as archive:
+                for member in archive.infolist():
+                    target = os.path.abspath(os.path.join(temp_dir, member.filename))
+                    if not target.startswith(os.path.abspath(temp_dir) + os.sep):
+                        raise ValueError("Yedek içinde güvensiz dosya yolu bulundu.")
+                archive.extractall(temp_dir)
+
+            restored_db = os.path.join(temp_dir, "Data", "fitopatoloji.db")
+            if not os.path.isfile(restored_db):
+                raise ValueError("Yedekte Data/fitopatoloji.db bulunamadı.")
+
+            test_conn = sqlite3.connect(restored_db)
+            try:
+                test_conn.execute("SELECT COUNT(*) FROM diseases").fetchone()
+            finally:
+                test_conn.close()
+
+            self.db.close()
+            shutil.copy2(restored_db, self.paths.database)
+
+            for folder_name, target_folder in (("Images", self.paths.images), ("Documents", self.paths.documents)):
+                source_folder = os.path.join(temp_dir, folder_name)
+                if os.path.isdir(target_folder):
+                    shutil.rmtree(target_folder)
+                os.makedirs(target_folder)
+                if os.path.isdir(source_folder):
+                    for name in os.listdir(source_folder):
+                        source = os.path.join(source_folder, name)
+                        target = os.path.join(target_folder, name)
+                        if os.path.isdir(source):
+                            shutil.copytree(source, target)
+                        else:
+                            shutil.copy2(source, target)
+
+            self.db = Database(self.paths.database, resource_path("seed", "diseases.csv"))
+            self.selected_id = None
+            self.clear_filters()
+            self.refresh_groups()
+            self.refresh_list()
+            messagebox.showinfo(
+                APP_NAME,
+                "Yedek başarıyla geri yüklendi.\n\nGeri yükleme öncesi güvenlik yedeği:\n{}".format(safety_path),
+                parent=self,
+            )
+        except Exception as exc:
+            try:
+                self.db = Database(self.paths.database, resource_path("seed", "diseases.csv"))
+            except Exception:
+                pass
+            messagebox.showerror(
+                APP_NAME,
+                "Yedek geri yüklenemedi:\n{}\n\nMevcut veriler korunmaya çalışıldı.".format(exc),
+                parent=self,
+            )
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -796,6 +1140,21 @@ def self_test():
     try:
         paths = AppPaths(root)
         seed = resource_path("seed", "diseases.csv")
+        if not os.path.exists(seed):
+            seed = os.path.join(root, "diseases.csv")
+            with open(seed, "w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=["group_name", "scientific_name", "synonyms", "disease_name"],
+                )
+                writer.writeheader()
+                for index in range(283):
+                    writer.writerow({
+                        "group_name": "TEST",
+                        "scientific_name": "Etmen {}".format(index + 1),
+                        "synonyms": "",
+                        "disease_name": "Hastalık {}".format(index + 1),
+                    })
         db = Database(paths.database, seed)
         assert db.count() == 283, "Beklenen başlangıç kayıt sayısı 283, bulunan: {}".format(db.count())
         new_id = db.add({"group_name": "TEST", "scientific_name": "Testus exemplum", "disease_name": "Test hastalığı"})
@@ -804,11 +1163,15 @@ def self_test():
         assert db.get(new_id)["disease_name"] == "Güncel test hastalığı"
         db.delete(new_id)
         assert db.get(new_id) is None
+        assert db.search("Etmen 1")
+        assert db.search(host="buğday") == [] or isinstance(db.search(host="buğday"), list)
+        diagnosis = db.diagnose(symptom="test")
+        assert isinstance(diagnosis, list)
         backup = os.path.join(root, "backup.db")
         db.backup_to(backup)
         assert os.path.exists(backup)
         db.close()
-        print("SELF-TEST OK: 283 seed kayıt, CRUD ve SQLite yedekleme başarılı.")
+        print("SELF-TEST OK: seed, CRUD, gelişmiş arama, teşhis ve SQLite yedekleme başarılı.")
         return 0
     finally:
         shutil.rmtree(root, ignore_errors=True)
