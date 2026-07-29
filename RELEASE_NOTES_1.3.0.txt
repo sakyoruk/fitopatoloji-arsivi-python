@@ -1,0 +1,13 @@
+Fitopatoloji Arşivi 1.3.0
+
+Gelişmiş Fotoğraf Analizi
+
+- Anotasyon araç çubuğu ayrı ve ortalanmış satıra taşındı.
+- Metin etiketi ve otomatik numaralı işaret araçları eklendi.
+- Seç / Taşı aracı ile anotasyon seçme ve sürükleme eklendi.
+- Seçili anotasyonu silme eklendi.
+- Geri al ve yinele desteği eklendi (Ctrl+Z / Ctrl+Y).
+- Çizgi kalınlığı seçimi eklendi.
+- Anotasyonları geçici olarak gizleme/gösterme eklendi.
+- Anotasyonlu fotoğrafı PNG/JPEG olarak dışa aktarma eklendi.
+- Araç çubuğu küçük ekranlarda daha düzenli çalışacak şekilde iki satıra ayrıldı.

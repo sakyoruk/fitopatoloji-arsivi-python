@@ -3,14 +3,16 @@ from .common import *
 
 
 class PhotoGallery(tk.Toplevel):
-    """Fotoğraf galerisi ve kalıcı anotasyon editörü."""
+    """Fotoğraf galerisi ve gelişmiş, kalıcı anotasyon editörü."""
 
     TOOLS = (
-        ("select", "Gezin"),
+        ("select", "Seç / Taşı"),
         ("arrow", "Ok"),
         ("rect", "Dikdörtgen"),
         ("oval", "Daire"),
         ("pen", "Kalem"),
+        ("text", "Metin"),
+        ("number", "Numara"),
         ("eraser", "Silgi"),
     )
 
@@ -34,16 +36,22 @@ class PhotoGallery(tk.Toplevel):
         self.tool_var = tk.StringVar(value=self.tool)
         self.draw_color = "#ff2d2d"
         self.line_width = 4
+        self.width_var = tk.StringVar(value=str(self.line_width))
         self.annotations = []
         self.undo_stack = []
+        self.redo_stack = []
         self.current_annotation = None
         self.drag_start = None
+        self.selected_index = None
+        self.move_origin = None
+        self.move_snapshot = None
+        self.annotations_visible = tk.BooleanVar(value=True)
         self.dirty = False
         self._render_job = None
 
-        self.title("Fotoğraf galerisi ve anotasyon")
-        self.geometry("1160x760")
-        self.minsize(820, 560)
+        self.title("Fotoğraf galerisi ve gelişmiş anotasyon")
+        self.geometry("1180x780")
+        self.minsize(850, 600)
         self.transient(master)
         self.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -73,8 +81,9 @@ class PhotoGallery(tk.Toplevel):
         self.bind("<KP_Subtract>", lambda _e: self.zoom_out())
         self.bind("<Control-s>", lambda _e: self.save_annotations())
         self.bind("<Control-z>", lambda _e: self.undo())
-        self.bind("<Delete>", lambda _e: self.erase_nearest_center())
-        self.bind("<Escape>", lambda _e: self.close())
+        self.bind("<Control-y>", lambda _e: self.redo())
+        self.bind("<Delete>", lambda _e: self.delete_selected())
+        self.bind("<Escape>", self._escape_action)
 
         if not self.photos:
             messagebox.showinfo(APP_NAME, "Bu kayıtta fotoğraf yok.", parent=master)
@@ -83,19 +92,30 @@ class PhotoGallery(tk.Toplevel):
         self.load_current()
 
     def _build_toolbar(self):
-        toolbar = ttk.Frame(self, padding=8)
-        toolbar.pack(fill="x")
+        top = ttk.Frame(self, padding=(8, 7, 8, 3))
+        top.pack(fill="x")
 
-        ttk.Button(toolbar, text="◀ Önceki", command=self.previous).pack(side="left")
-        ttk.Button(toolbar, text="Sonraki ▶", command=self.next).pack(side="left", padx=4)
-        ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=7)
-        ttk.Button(toolbar, text="Küçült", command=self.zoom_out).pack(side="left")
-        ttk.Button(toolbar, text="Büyüt", command=self.zoom_in).pack(side="left", padx=4)
-        ttk.Button(toolbar, text="Sığdır", command=self.fit).pack(side="left")
-        ttk.Button(toolbar, text="Döndür", command=self.rotate).pack(side="left", padx=4)
+        left = ttk.Frame(top)
+        left.pack(side="left")
+        ttk.Button(left, text="◀ Önceki", command=self.previous).pack(side="left")
+        ttk.Button(left, text="Sonraki ▶", command=self.next).pack(side="left", padx=4)
+        ttk.Separator(left, orient="vertical").pack(side="left", fill="y", padx=7)
+        ttk.Button(left, text="Küçült", command=self.zoom_out).pack(side="left")
+        ttk.Button(left, text="Büyüt", command=self.zoom_in).pack(side="left", padx=4)
+        ttk.Button(left, text="Sığdır", command=self.fit).pack(side="left")
+        ttk.Button(left, text="Döndür", command=self.rotate).pack(side="left", padx=4)
 
-        tools = ttk.Frame(self, padding=(8, 0, 0, 0))
-        tools.pack(side="left")
+        right = ttk.Frame(top)
+        right.pack(side="right")
+        ttk.Button(right, text="Ana fotoğraf yap", command=self.make_primary).pack(side="left")
+        ttk.Button(right, text="Açıklama", command=self.edit_description).pack(side="left", padx=4)
+        ttk.Button(right, text="Dışarıda aç", command=self.open_external).pack(side="left")
+
+        tools_row = ttk.Frame(self, padding=(8, 3, 8, 7))
+        tools_row.pack(fill="x")
+        tools = ttk.Frame(tools_row)
+        tools.pack(anchor="center")
+
         for value, label in self.TOOLS:
             ttk.Radiobutton(
                 tools,
@@ -105,16 +125,31 @@ class PhotoGallery(tk.Toplevel):
                 command=self.change_tool,
             ).pack(side="left", padx=2)
 
-        ttk.Button(tools, text="Renk", command=self.choose_color).pack(side="left", padx=(8, 2))
+        ttk.Separator(tools, orient="vertical").pack(side="left", fill="y", padx=7)
+        self.color_button = ttk.Button(tools, text="Renk ■", command=self.choose_color)
+        self.color_button.pack(side="left", padx=2)
+        ttk.Label(tools, text="Kalınlık:").pack(side="left", padx=(7, 2))
+        width_box = ttk.Combobox(
+            tools,
+            textvariable=self.width_var,
+            values=("1", "2", "3", "4", "6", "8", "10", "14"),
+            width=3,
+            state="readonly",
+        )
+        width_box.pack(side="left", padx=(0, 5))
+        width_box.bind("<<ComboboxSelected>>", self.change_width)
         ttk.Button(tools, text="Geri al", command=self.undo).pack(side="left", padx=2)
+        ttk.Button(tools, text="Yinele", command=self.redo).pack(side="left", padx=2)
+        ttk.Button(tools, text="Seçileni sil", command=self.delete_selected).pack(side="left", padx=2)
         ttk.Button(tools, text="Tümünü sil", command=self.clear_annotations).pack(side="left", padx=2)
-        ttk.Button(tools, text="Kaydet", command=self.save_annotations).pack(side="left", padx=(8, 2))
-
-        right = ttk.Frame(toolbar)
-        right.pack(side="right")
-        ttk.Button(right, text="Ana fotoğraf yap", command=self.make_primary).pack(side="left")
-        ttk.Button(right, text="Açıklama", command=self.edit_description).pack(side="left", padx=4)
-        ttk.Button(right, text="Dışarıda aç", command=self.open_external).pack(side="left")
+        ttk.Checkbutton(
+            tools,
+            text="İşaretleri göster",
+            variable=self.annotations_visible,
+            command=self.render,
+        ).pack(side="left", padx=(7, 2))
+        ttk.Button(tools, text="PNG dışa aktar", command=self.export_annotated_image).pack(side="left", padx=2)
+        ttk.Button(tools, text="Kaydet", command=self.save_annotations).pack(side="left", padx=(7, 2))
 
     def current_row(self):
         return self.photos[self.index] if self.photos else None
@@ -159,8 +194,12 @@ class PhotoGallery(tk.Toplevel):
         self.rotation = 0
         self.annotations = self.db.attachment_annotations(self.current_attachment_id())
         self.undo_stack = []
+        self.redo_stack = []
         self.current_annotation = None
         self.drag_start = None
+        self.selected_index = None
+        self.move_origin = None
+        self.move_snapshot = None
         self.dirty = False
         self.fit()
 
@@ -199,30 +238,33 @@ class PhotoGallery(tk.Toplevel):
             anchor="center",
             tags=("photo",),
         )
-        self._draw_all_annotations()
+        if self.annotations_visible.get():
+            self._draw_all_annotations()
 
         row = self.current_row()
         primary = " · ANA FOTOĞRAF" if row["is_primary"] else ""
         changed = " · KAYDEDİLMEDİ" if self.dirty else ""
+        selected = " · SEÇİLİ: {}".format(self.selected_index + 1) if self.selected_index is not None else ""
         self.info_var.set(
-            "{} / {} · {} · Yakınlaştırma: %{}{}{} · {}".format(
+            "{} / {} · {} · Yakınlaştırma: %{}{}{}{} · {}".format(
                 self.index + 1,
                 len(self.photos),
                 os.path.basename(row["relative_path"]).split("_", 1)[-1],
                 int(self.zoom * 100),
                 primary,
                 changed,
+                selected,
                 row["description"] or "Açıklama yok",
             )
         )
 
     def _draw_all_annotations(self):
-        for annotation in self.annotations:
-            self._draw_annotation(annotation)
+        for index, annotation in enumerate(self.annotations):
+            self._draw_annotation(annotation, selected=(index == self.selected_index))
         if self.current_annotation:
             self._draw_annotation(self.current_annotation, preview=True)
 
-    def _draw_annotation(self, annotation, preview=False):
+    def _draw_annotation(self, annotation, preview=False, selected=False):
         kind = annotation.get("type")
         points = annotation.get("points") or []
         if not points:
@@ -239,32 +281,85 @@ class PhotoGallery(tk.Toplevel):
         elif kind == "oval" and len(coords) >= 4:
             self.canvas.create_oval(*coords[:4], outline=color, width=width, tags=tags)
         elif kind == "arrow" and len(coords) >= 4:
-            self.canvas.create_line(*coords[:4], fill=color, width=width, arrow=tk.LAST, arrowshape=(12, 14, 5), tags=tags)
+            self.canvas.create_line(
+                *coords[:4], fill=color, width=width, arrow=tk.LAST,
+                arrowshape=(12, 14, 5), tags=tags
+            )
         elif kind == "pen" and len(coords) >= 4:
-            self.canvas.create_line(*coords, fill=color, width=width, smooth=True, splinesteps=16, capstyle=tk.ROUND, joinstyle=tk.ROUND, tags=tags)
+            self.canvas.create_line(
+                *coords, fill=color, width=width, smooth=True,
+                splinesteps=16, capstyle=tk.ROUND, joinstyle=tk.ROUND, tags=tags
+            )
+        elif kind == "text" and len(coords) >= 2:
+            self.canvas.create_text(
+                coords[0], coords[1], text=annotation.get("text", ""), fill=color,
+                anchor="nw", font=("Arial", max(10, int(14 * max(0.7, self.zoom))), "bold"), tags=tags
+            )
+        elif kind == "number" and len(coords) >= 2:
+            radius = max(10, int(14 * max(0.7, self.zoom)))
+            x, y = coords[0], coords[1]
+            self.canvas.create_oval(x-radius, y-radius, x+radius, y+radius, outline=color, width=width, tags=tags)
+            self.canvas.create_text(
+                x, y, text=str(annotation.get("number", 1)), fill=color,
+                font=("Arial", max(9, int(12 * max(0.7, self.zoom))), "bold"), tags=tags
+            )
+
+        if selected and not preview:
+            bbox = self._annotation_bbox_canvas(annotation)
+            if bbox:
+                pad = 5
+                self.canvas.create_rectangle(
+                    bbox[0]-pad, bbox[1]-pad, bbox[2]+pad, bbox[3]+pad,
+                    outline="#00bfff", width=1, dash=(4, 3), tags=("selection",)
+                )
+
+    def _annotation_bbox_canvas(self, annotation):
+        points = annotation.get("points") or []
+        if not points:
+            return None
+        canvas_points = [self.image_to_canvas(p[0], p[1]) for p in points]
+        xs = [p[0] for p in canvas_points]
+        ys = [p[1] for p in canvas_points]
+        if annotation.get("type") in ("text", "number"):
+            x, y = canvas_points[0]
+            if annotation.get("type") == "number":
+                return x-18, y-18, x+18, y+18
+            text = annotation.get("text", "")
+            return x, y, x + max(35, len(text) * 9), y + 24
+        return min(xs), min(ys), max(xs), max(ys)
 
     def change_tool(self):
         self.tool = self.tool_var.get()
-        if self.tool in ("arrow", "rect", "oval", "pen", "eraser") and self.rotation != 0:
+        self.current_annotation = None
+        self.drag_start = None
+        if self.tool != "select":
+            self.selected_index = None
+        if self.tool in ("arrow", "rect", "oval", "pen", "text", "number", "eraser") and self.rotation != 0:
             self.rotation = 0
             self.fit()
         cursors = {
-            "select": "arrow",
-            "arrow": "crosshair",
-            "rect": "crosshair",
-            "oval": "crosshair",
-            "pen": "pencil",
-            "eraser": "dotbox",
+            "select": "hand2", "arrow": "crosshair", "rect": "crosshair",
+            "oval": "crosshair", "pen": "pencil", "text": "xterm",
+            "number": "crosshair", "eraser": "dotbox",
         }
         try:
             self.canvas.configure(cursor=cursors.get(self.tool, "arrow"))
         except tk.TclError:
             self.canvas.configure(cursor="crosshair" if self.tool != "select" else "arrow")
+        self.render()
+
+    def change_width(self, _event=None):
+        try:
+            self.line_width = max(1, int(self.width_var.get()))
+        except (TypeError, ValueError):
+            self.line_width = 4
+            self.width_var.set("4")
 
     def choose_color(self):
         _rgb, value = colorchooser.askcolor(color=self.draw_color, parent=self, title="Anotasyon rengi")
         if value:
             self.draw_color = value
+            self.color_button.configure(text="Renk {}".format(value.upper()))
 
     def canvas_inside_image(self, x, y):
         return (
@@ -286,14 +381,51 @@ class PhotoGallery(tk.Toplevel):
         return self.image_left + x * self.zoom, self.image_top + y * self.zoom
 
     def on_press(self, event):
-        if self.tool == "select" or self.original_image is None:
-            return
-        if not self.canvas_inside_image(event.x, event.y):
+        if self.original_image is None or not self.canvas_inside_image(event.x, event.y):
             return
         point = self.canvas_to_image(event.x, event.y)
+
+        if self.tool == "select":
+            self.selected_index = self._find_annotation_at(point, tolerance=16.0 / max(self.zoom, 0.1))
+            if self.selected_index is not None:
+                self.move_origin = point
+                self.move_snapshot = json.loads(json.dumps(self.annotations[self.selected_index], ensure_ascii=False))
+            else:
+                self.move_origin = None
+                self.move_snapshot = None
+            self.render()
+            return
+
         if self.tool == "eraser":
             self.erase_at(point)
             return
+
+        if self.tool == "text":
+            value = simpledialog.askstring(APP_NAME, "Fotoğraf üzerine eklenecek metin:", parent=self)
+            if value:
+                self._push_undo()
+                self.annotations.append({
+                    "type": "text", "color": self.draw_color, "width": self.line_width,
+                    "points": [list(point)], "text": value,
+                })
+                self.selected_index = len(self.annotations) - 1
+                self.dirty = True
+                self.render()
+            return
+
+        if self.tool == "number":
+            used = [int(a.get("number", 0)) for a in self.annotations if a.get("type") == "number"]
+            next_number = max(used or [0]) + 1
+            self._push_undo()
+            self.annotations.append({
+                "type": "number", "color": self.draw_color, "width": self.line_width,
+                "points": [list(point)], "number": next_number,
+            })
+            self.selected_index = len(self.annotations) - 1
+            self.dirty = True
+            self.render()
+            return
+
         self.drag_start = point
         self.current_annotation = {
             "type": self.tool,
@@ -304,6 +436,18 @@ class PhotoGallery(tk.Toplevel):
         self.render()
 
     def on_drag(self, event):
+        if self.tool == "select" and self.selected_index is not None and self.move_origin and self.move_snapshot:
+            x = min(max(event.x, self.image_left), self.image_left + self.display_width)
+            y = min(max(event.y, self.image_top), self.image_top + self.display_height)
+            point = self.canvas_to_image(x, y)
+            dx = point[0] - self.move_origin[0]
+            dy = point[1] - self.move_origin[1]
+            moved = json.loads(json.dumps(self.move_snapshot, ensure_ascii=False))
+            moved["points"] = [[p[0] + dx, p[1] + dy] for p in moved.get("points", [])]
+            self.annotations[self.selected_index] = moved
+            self.render()
+            return
+
         if not self.current_annotation or self.drag_start is None:
             return
         x = min(max(event.x, self.image_left), self.image_left + self.display_width)
@@ -317,7 +461,23 @@ class PhotoGallery(tk.Toplevel):
             self.current_annotation["points"] = [list(self.drag_start), list(point)]
         self.render()
 
-    def on_release(self, event):
+    def on_release(self, _event):
+        if self.tool == "select" and self.selected_index is not None and self.move_origin and self.move_snapshot:
+            before = self.move_snapshot
+            after = self.annotations[self.selected_index]
+            if before.get("points") != after.get("points"):
+                previous_state = json.loads(json.dumps(self.annotations, ensure_ascii=False))
+                previous_state[self.selected_index] = before
+                self.undo_stack.append(previous_state)
+                if len(self.undo_stack) > 50:
+                    self.undo_stack.pop(0)
+                self.redo_stack = []
+                self.dirty = True
+            self.move_origin = None
+            self.move_snapshot = None
+            self.render()
+            return
+
         if not self.current_annotation:
             return
         points = self.current_annotation.get("points") or []
@@ -329,60 +489,85 @@ class PhotoGallery(tk.Toplevel):
         if valid:
             self._push_undo()
             self.annotations.append(self.current_annotation)
+            self.selected_index = len(self.annotations) - 1
             self.dirty = True
         self.current_annotation = None
         self.drag_start = None
         self.render()
 
+    def _snapshot(self):
+        return json.loads(json.dumps(self.annotations, ensure_ascii=False))
+
     def _push_undo(self):
-        snapshot = json.loads(json.dumps(self.annotations, ensure_ascii=False))
-        self.undo_stack.append(snapshot)
+        self.undo_stack.append(self._snapshot())
         if len(self.undo_stack) > 50:
             self.undo_stack.pop(0)
+        self.redo_stack = []
 
     def undo(self):
         if not self.undo_stack:
             return
+        self.redo_stack.append(self._snapshot())
         self.annotations = self.undo_stack.pop()
         self.current_annotation = None
         self.drag_start = None
+        self.selected_index = None
         self.dirty = True
         self.render()
 
-    def erase_at(self, image_point):
-        if not self.annotations:
+    def redo(self):
+        if not self.redo_stack:
             return
-        tolerance = 14.0 / max(self.zoom, 0.1)
+        self.undo_stack.append(self._snapshot())
+        self.annotations = self.redo_stack.pop()
+        self.current_annotation = None
+        self.drag_start = None
+        self.selected_index = None
+        self.dirty = True
+        self.render()
+
+    def _find_annotation_at(self, image_point, tolerance):
         best_index = None
         best_distance = None
-        for index, annotation in enumerate(self.annotations):
-            distance = self._annotation_distance(annotation, image_point)
+        for index in range(len(self.annotations) - 1, -1, -1):
+            distance = self._annotation_distance(self.annotations[index], image_point)
             if distance <= tolerance and (best_distance is None or distance < best_distance):
                 best_index = index
                 best_distance = distance
-        if best_index is not None:
+        return best_index
+
+    def erase_at(self, image_point):
+        index = self._find_annotation_at(image_point, 16.0 / max(self.zoom, 0.1))
+        if index is not None:
             self._push_undo()
-            del self.annotations[best_index]
+            del self.annotations[index]
+            self.selected_index = None
             self.dirty = True
             self.render()
 
-    def erase_nearest_center(self):
-        if self.tool != "eraser" or not self.annotations:
+    def delete_selected(self):
+        if self.selected_index is None or not (0 <= self.selected_index < len(self.annotations)):
             return
-        center = self.canvas_to_image(self.canvas.winfo_width() / 2.0, self.canvas.winfo_height() / 2.0)
-        self.erase_at(center)
+        self._push_undo()
+        del self.annotations[self.selected_index]
+        self.selected_index = None
+        self.dirty = True
+        self.render()
 
     def _annotation_distance(self, annotation, point):
         points = annotation.get("points") or []
         if not points:
             return 1e12
         kind = annotation.get("type")
+        px, py = point
+        if kind in ("text", "number"):
+            x, y = points[0]
+            return ((px - x) ** 2 + (py - y) ** 2) ** 0.5
         if kind in ("rect", "oval") and len(points) >= 2:
             x1, y1 = points[0]
             x2, y2 = points[-1]
             left, right = sorted((x1, x2))
             top, bottom = sorted((y1, y2))
-            px, py = point
             if left <= px <= right and top <= py <= bottom:
                 return min(px - left, right - px, py - top, bottom - py)
             dx = max(left - px, 0, px - right)
@@ -415,6 +600,7 @@ class PhotoGallery(tk.Toplevel):
             return
         self._push_undo()
         self.annotations = []
+        self.selected_index = None
         self.dirty = True
         self.render()
 
@@ -432,6 +618,73 @@ class PhotoGallery(tk.Toplevel):
         except Exception as exc:
             messagebox.showerror(APP_NAME, "İşaretlemeler kaydedilemedi:\n{}".format(exc), parent=self)
             return False
+
+    def export_annotated_image(self):
+        if self.original_image is None:
+            return
+        default_name = os.path.splitext(os.path.basename(self.current_path()))[0] + "_anotasyonlu.png"
+        target = filedialog.asksaveasfilename(
+            parent=self,
+            title="Anotasyonlu görseli kaydet",
+            defaultextension=".png",
+            initialfile=default_name,
+            filetypes=[("PNG görsel", "*.png"), ("JPEG görsel", "*.jpg;*.jpeg")],
+        )
+        if not target:
+            return
+        try:
+            from PIL import ImageDraw, ImageFont
+            image = self.original_image.copy().convert("RGB")
+            draw = ImageDraw.Draw(image)
+            try:
+                font = ImageFont.truetype("arial.ttf", 18)
+                font_bold = ImageFont.truetype("arialbd.ttf", 18)
+            except Exception:
+                font = ImageFont.load_default()
+                font_bold = font
+            for annotation in self.annotations:
+                self._draw_annotation_on_image(draw, annotation, font, font_bold)
+            image.save(target)
+            messagebox.showinfo(APP_NAME, "Anotasyonlu görsel kaydedildi:\n{}".format(target), parent=self)
+        except Exception as exc:
+            messagebox.showerror(APP_NAME, "Görsel dışa aktarılamadı:\n{}".format(exc), parent=self)
+
+    def _draw_annotation_on_image(self, draw, annotation, font, font_bold):
+        kind = annotation.get("type")
+        points = annotation.get("points") or []
+        if not points:
+            return
+        color = annotation.get("color") or self.draw_color
+        width = max(1, int(annotation.get("width") or self.line_width))
+        xy = [tuple(p) for p in points]
+        if kind == "rect" and len(xy) >= 2:
+            draw.rectangle([xy[0], xy[-1]], outline=color, width=width)
+        elif kind == "oval" and len(xy) >= 2:
+            draw.ellipse([xy[0], xy[-1]], outline=color, width=width)
+        elif kind == "pen" and len(xy) >= 2:
+            draw.line(xy, fill=color, width=width, joint="curve")
+        elif kind == "arrow" and len(xy) >= 2:
+            import math
+            start, end = xy[0], xy[-1]
+            draw.line([start, end], fill=color, width=width)
+            angle = math.atan2(end[1] - start[1], end[0] - start[0])
+            size = max(12, width * 4)
+            p1 = (end[0] - size * math.cos(angle - 0.5), end[1] - size * math.sin(angle - 0.5))
+            p2 = (end[0] - size * math.cos(angle + 0.5), end[1] - size * math.sin(angle + 0.5))
+            draw.polygon([end, p1, p2], fill=color)
+        elif kind == "text":
+            draw.text(xy[0], annotation.get("text", ""), fill=color, font=font_bold)
+        elif kind == "number":
+            x, y = xy[0]
+            radius = 16
+            draw.ellipse([x-radius, y-radius, x+radius, y+radius], outline=color, width=width)
+            value = str(annotation.get("number", 1))
+            try:
+                box = draw.textbbox((0, 0), value, font=font_bold)
+                tw, th = box[2] - box[0], box[3] - box[1]
+            except Exception:
+                tw, th = draw.textsize(value, font=font_bold)
+            draw.text((x - tw/2.0, y - th/2.0), value, fill=color, font=font_bold)
 
     def _confirm_save_changes(self):
         if not self.dirty:
@@ -527,6 +780,15 @@ class PhotoGallery(tk.Toplevel):
             os.startfile(path)
         except Exception as exc:
             messagebox.showerror(APP_NAME, "Fotoğraf açılamadı:\n{}".format(exc), parent=self)
+
+    def _escape_action(self, _event=None):
+        if self.current_annotation or self.selected_index is not None:
+            self.current_annotation = None
+            self.drag_start = None
+            self.selected_index = None
+            self.render()
+        else:
+            self.close()
 
     def close(self):
         if self._confirm_save_changes():
