@@ -1,0 +1,13 @@
+FİTOPATOLOJİ ARŞİVİ - KULLANIM
+
+1. ZIP paketini yazma izniniz olan bir klasöre çıkarın. Öneri: Belgelerim\FitopatolojiArsivi
+2. FitopatolojiArsivi.exe dosyasını açın.
+3. İlk açılışta Data\fitopatoloji.db oluşturulur ve 283 başlangıç kaydı yüklenir.
+4. Yeni kayıt, Düzenle ve Sil düğmeleriyle verileri yönetin.
+5. Fotoğraf ve belgeler Images ve Documents klasörlerine kopyalanır.
+6. Yedek oluştur düğmesi Data, Images ve Documents içeriğini Backups klasöründe ZIP olarak saklar.
+
+ÖNEMLİ
+- Uygulama klasörünü Program Files içine koymayın; bu klasörde yazma izni sorunu çıkabilir.
+- Data, Images ve Documents klasörlerini düzenli olarak haricî diske yedekleyin.
+- Windows 7'de program açılmazsa sistemde KB2533623 güncellemesinin bulunması gerekebilir.

@@ -1,0 +1,284 @@
+﻿id,group_name,scientific_name,synonyms,disease_name
+1,ASCOMYCOTA,Alternaria alternata,,Elmada Alternarya meyve çürüklüğü
+2,ASCOMYCOTA,Alternaria alternata f.sp. citri,,Turunçgilde kahverengi leke
+3,ASCOMYCOTA,Alternaria alternata f.sp. lycopersici,,Domateste Alternaria gövde kanseri
+4,ASCOMYCOTA,Alternaria cucumerina,,Kabakgillerde Alternaria yaprak yanıklığı
+5,ASCOMYCOTA,Alternaria dauci,,Havuçta yaprak yanıklığı
+6,ASCOMYCOTA,Alternaria dianthi,,Karanfil yaprak lekesi
+7,ASCOMYCOTA,Alternariaster helianthi,= Alternaria helianthi,Ayçiçeği bitkisinde yaprak lekesi ve yanıklık
+8,ASCOMYCOTA,Alternaria porri,,Soğan mor leke hastalığı
+9,ASCOMYCOTA,Alternaria radicina,,Havuçta siyah çürüklük
+10,ASCOMYCOTA,Alternaria solani,,Patlıcangillerde erken yaprak yanıklığı
+11,ASCOMYCOTA,Anisogramma anomala,,Fındıkta Doğu filbert yanıklığı
+12,ASCOMYCOTA,Apiosporina morbosa,,Sert çekirdeklilerde kara düğüm hastalığı
+13,ASCOMYCOTA,Ascochyta fabae,,"Baklada yaprak, gövde ve meyve lekeleri"
+14,ASCOMYCOTA,Ascochyta lentis,,Mercimekte antraknoz veya yaprak yanıklığı
+15,ASCOMYCOTA,Ascochyta pisi,,Bezelye yaprak ve meyve lekesi
+16,ASCOMYCOTA,Ascochyta rabiei,,Nohut antraknozu
+17,ASCOMYCOTA,Aspergillus flavus,,Mısır ve yer fıstığında küflenme ve aflatoksin oluşumu
+18,ASCOMYCOTA,Aspergillus niger,,Yer fıstığında kökboğazı çürüklüğü
+19,ASCOMYCOTA,Aspergillus parasiticus,,Yer fıstığı küflenme ve çürüklüğü
+20,ASCOMYCOTA,Berkeleyomyces basicola,,"Tütün, pamuk ve havuçta siyah kök çürüklüğü"
+21,ASCOMYCOTA,Bipolaris maydis,= Cochliobolus heterostrophus,Mısırda güney yaprak yanıklığı
+22,ASCOMYCOTA,Bipolaris oryzae,= Cochliobolus miyabeanus,Çeltik kahverengi yaprak lekesi (kınacık)
+23,ASCOMYCOTA,Bipolaris sorokiniana,,Tahıllarda adi kök çürüklüğü/lekelenme
+24,ASCOMYCOTA,Blumeria graminis,Erysiphe graminis,Tahıl küllemesi
+25,ASCOMYCOTA,Blumeriella jaapii,,Kiraz ve vişnede yaprak lekesi
+26,ASCOMYCOTA,Boeremia lycopersici,"= Didymella lycopersici, = Ascochyta lycopersici",Domateste gövde kanseri ve gövde çürüklüğü
+27,ASCOMYCOTA,Botrytis allii,,Soğan boyun çürüklüğü
+28,ASCOMYCOTA,Botrytis cinerea,,Kurşuni küf
+29,ASCOMYCOTA,Botrytis fabae,,Baklada çikolata lekesi hastalığı
+30,ASCOMYCOTA,Botrytis squamosa,,Soğan yaprak yanıklığı
+31,ASCOMYCOTA,Botryosphaeria dothidea,,Odunsu bitkilerde kanser ve geriye ölüm
+32,ASCOMYCOTA,Bretziella fagacearum,= Ceratocystis fagacearum,Meşe solgunluğu
+33,ASCOMYCOTA,Ceratocystis platani,,Çınar kanseri
+34,ASCOMYCOTA,Cercospora arachidicola,Mycosphaerella arachidis,Yer fıstığında serkospora erken yaprak lekesi
+35,ASCOMYCOTA,Cercospora beticola,,Şeker pancarı yaprak lekesi
+36,ASCOMYCOTA,Cercospora janseana,,Çeltikte dar kahverengi yaprak lekesi
+37,ASCOMYCOTA,Cercospora malkoffii,,Anason yaprak lekesi
+38,ASCOMYCOTA,Cercospora sojina,,Soya fasulyesinde kurbağa gözü yaprak lekesi
+39,ASCOMYCOTA,Cercospora zeae-maydis,,Mısırda gri yaprak lekesi
+40,ASCOMYCOTA,Cladobotryum dendroides,,Kültür mantarında örümcek ağı
+41,ASCOMYCOTA,Cladosporium variabile,,Ispanak yaprak lekesi
+42,ASCOMYCOTA,Claviceps purpurea,,Çavdar mahmuzu
+43,ASCOMYCOTA,Colletotrichum acutatum,,Zeytinde ve çilekte antraknoz
+44,ASCOMYCOTA,Colletotrichum coccodes,,Domateste antraknoz ve patateste siyah benek
+45,ASCOMYCOTA,Colletotrichum dematium f. sp. spinaciae,,Ispanak antraknozu
+46,ASCOMYCOTA,Colletotrichum fragariae,,Çilekte antraknoz
+47,ASCOMYCOTA,Colletotrichum gloeosporioides,,Zeytinde antraknoz
+48,ASCOMYCOTA,Colletotrichum lindemuthianum,,Fasulye antraknozu
+49,ASCOMYCOTA,Colletotrichum orbiculare,,Kabakgillerde antraknoz
+50,ASCOMYCOTA,Colletotrichum scovillei,,Biber antraknozu
+51,ASCOMYCOTA,Colletotrichum truncatum,,Soya fasulyesi ve mercimekte antraknoz
+52,ASCOMYCOTA,Coniella granati,,Narda taç çürüklüğü ve dal yanıklığı
+53,ASCOMYCOTA,Corynespora cassiicola,,Domateste yaprak lekesi (hedef leke)
+54,ASCOMYCOTA,Cryphonectria parasitica,,Kestane kanseri
+55,ASCOMYCOTA,Cytospora spp.,,Sert çekirdekli meyvelerde sitospora kanseri
+56,ASCOMYCOTA,Dendryphion papaveris,,Haşhaş kökboğazı yanıklığı
+57,ASCOMYCOTA,Diaporthe helianthi,,Ayçiçeği sap kanseri
+58,ASCOMYCOTA,Diaporthe cinerascens,= Phomopsis cinerescens,İncir çelik marazı (incir kanseri)
+59,ASCOMYCOTA,Diaporthe neoviticola,= Phomopsis viticola,Bağda ölükol/ekskoryoz
+60,ASCOMYCOTA,Diaporthe vexans,,Patlıcanlarda meyve çürüklüğü/yaprak yanıklığı
+61,ASCOMYCOTA,Didymella applanata,,Ahudududa sürgün yanıklığı
+62,ASCOMYCOTA,Didymella pinodella,,Bezelye ve üçgülde kök çürüklüğü
+63,ASCOMYCOTA,Didymella pinodes,"= Ascochyta pinodes, = Mycosphaerella pinodes",Bezelyede Ascochyta yanıklığı
+64,ASCOMYCOTA,Diplocarpon mespili,,Ayva ve armutta kahverengi leke
+65,ASCOMYCOTA,Diplocarpon rosae,,Gülde kara leke
+66,ASCOMYCOTA,Diplodia seriata,,"Odunsu bitkilerde kanser, dal kuruması (elma, asma)"
+67,ASCOMYCOTA,Elsinoe ampelina,,Bağ antraknozu
+68,ASCOMYCOTA,Elsinoë fawcettii,,Turunçgil uyuzu
+69,ASCOMYCOTA,Embellisia hyacinthi,,Sümbül leke hastalığı
+70,ASCOMYCOTA,Eremothecium coryli,,Fındıkta maya lekesi
+71,ASCOMYCOTA,Erysiphe betae,,Şeker pancarında külleme
+72,ASCOMYCOTA,Erysiphe corylacearum,,Fındıkta külleme
+73,ASCOMYCOTA,Erysiphe heraclei,,Havuçta külleme
+74,ASCOMYCOTA,Erysiphe necator,Uncinula necator,Bağ küllemesi
+75,ASCOMYCOTA,Erysiphe pisi,,Bezelyede külleme
+76,ASCOMYCOTA,Eutypa lata,,Asmada dal kuruması / geriye doğru ölüm
+77,ASCOMYCOTA,Exserohilum turcicum,= Setosphaeria turcica,Mısırda kuzey yaprak yanıklığı
+78,ASCOMYCOTA,Fulvia fulva,Cladosporium fulvum = Passalora fulva,Domates Yaprak Küfü (Kahverengi yaprak lekesi)
+79,ASCOMYCOTA,Fusarium culmorum,,Buğday ve arpada başak yanıklığı
+80,ASCOMYCOTA,Fusarium fujikuroi,=Gibberella fujikuroi,Çeltik bitkisinde “bakanae” (uzun boy) hastalığı
+81,ASCOMYCOTA,Fusarium graminearum,,Buğday ve arpada başak yanıklığı
+82,ASCOMYCOTA,Fusarium oxysporum f. sp. cepae,,Soğan ve sarımsakta dip çürüklüğü
+83,ASCOMYCOTA,Fusarium oxysporum f. sp. ciceris,,Nohutta solgunluk hastalığı
+84,ASCOMYCOTA,Fusarium oxysporum f. sp. cubense,,Muzda Panama hastalığı
+85,ASCOMYCOTA,Fusarium oxysporum f. sp. cucumerinum,,Hıyarda vasküler solgunluk
+86,ASCOMYCOTA,Fusarium oxysporum f.sp. lentis,,Mercimekte solgunluk
+87,ASCOMYCOTA,Fusarium oxysporum f.sp. lycopersici,,Domateste Fusarium vasküler solgunluğu
+88,ASCOMYCOTA,Fusarium oxysporum f. sp. melonis,,Kavunda vasküler solgunluk
+89,ASCOMYCOTA,Fusarium oxysporum f. sp. radicis-lycopersici,,Domateste Fusarium kök ve kökboğazı çürüklüğü
+90,ASCOMYCOTA,Fusarium oxysporum f. sp. niveum,,Karpuzda vasküler solgunluk
+91,ASCOMYCOTA,Fusarium oxysporum f. sp. vasinfectum,,Pamukta Fusarium vasküler solgunluğu
+92,ASCOMYCOTA,Fusarium pseudograminearum,,Tahıllarda kök ve kökboğazı çürüklüğü
+93,ASCOMYCOTA,Fusarium sambucinum,,Patateste kuru çürüklük
+94,ASCOMYCOTA,Fusarium solani,,Patateste kuru çürüklük
+95,ASCOMYCOTA,Fusarium verticillioides,,Mısır koçan ve sap çürüklüğü
+96,ASCOMYCOTA,Gaeumannomyces tritici,= G. graminis var. tritici,Buğdayda take-all/kök ve kökboğazı çürüklüğü
+97,ASCOMYCOTA,Golovinomyces cichoracearum,= Erysiphe cichoracearum,Kabakgillerde külleme
+98,ASCOMYCOTA,Helminthosporium solani,,Patateste gümüşi kabuk hastalığı
+99,ASCOMYCOTA,Lecanicillium fungicola,Verticillium fungicola,Kültür mantarında kuru kabarcık
+100,ASCOMYCOTA,Leveillula taurica,,Patlıcangillerde külleme
+101,ASCOMYCOTA,Lophodermium spp.,,Çam iğne dökümü
+102,ASCOMYCOTA,Macrophomina phaseolina,,Kömür çürüklüğü
+103,ASCOMYCOTA,Marssonina coronaria,,Elma yaprak lekesi
+104,ASCOMYCOTA,Microsphaera begoniae,,Begonya yaprak lekesi
+105,ASCOMYCOTA,Microdochium nivale,Monographella nivalis,Buğdaygillerde pembe kar küfü
+106,ASCOMYCOTA,Microsphaeropsis olivaceum,,Ahududu ve böğürtlende dal yanıklığı
+107,ASCOMYCOTA,Monilinia fructicola,,Çiçek ve meyve monilyası / kahverengi çürüklük
+108,ASCOMYCOTA,Monilinia fructigena,,Yumuşak çekirdeklilerde kahverengi çürüklük (monilya)
+109,ASCOMYCOTA,Monilinia laxa,,Sert çekirdekli meyvelerde çiçek monilyası
+110,ASCOMYCOTA,Monilinia linhartiana,,Ayva monilyası
+111,ASCOMYCOTA,Monosporascus cannonballus,,Kavun-karpuz kök çürüklüğü ve ani solgunluk
+112,ASCOMYCOTA,Mycogone perniciosa,,Kültür mantarında yaş kabarcık
+113,ASCOMYCOTA,Nakataea oryzae,"= Leptosphaeria salvinii, = Sclerotium oryzae",Çeltik sap çürüklüğü
+114,ASCOMYCOTA,Neocamarosporium betae,= Phoma betae,Şeker pancarında çökerten (kök yanıklığı)
+115,ASCOMYCOTA,Neofusicoccum parvum,,Odunsu bitkilerde geriye ölüm ve kanser
+116,ASCOMYCOTA,Neonectria ditissima,Nectria galligena,Avrupa dal kanseri (Elma kanseri)
+117,ASCOMYCOTA,Neopseudocercosporella brassicae,= Mycosphaerella brassicicola,Lahanagillerde halkalı leke
+118,ASCOMYCOTA,Nothopassalora personata,Mycosphaerella berkeleyi,Yer fıstığında serkospora geç yaprak lekesi
+119,ASCOMYCOTA,Oculimacula spp.,,Buğday ve arpada göz lekesi (eyespot)
+120,ASCOMYCOTA,Ophiognomonia leptostyla,,Ceviz antraknozu
+121,ASCOMYCOTA,Ophiostoma novo-ulmi,,Hollanda karaağaç hastalığı
+122,ASCOMYCOTA,Ophiostoma ulmi,,Hollanda karaağaç hastalığı
+123,ASCOMYCOTA,Parastagonospora nodorum,,Buğday yaprak ve kavuz lekesi
+124,ASCOMYCOTA,Penicillium digitatum,,Turunçgillerde yeşil küf
+125,ASCOMYCOTA,Penicillium expansum,,Elma ve armutta mavi küf
+126,ASCOMYCOTA,Penicillium hirsutum,,Soğan ve sarımsakta mavi küf hastalığı
+127,ASCOMYCOTA,Penicillium italicum,,Turunçgillerde mavi küf çürüklüğü
+128,ASCOMYCOTA,Phaeoacremonium minimum,,Asmalarda Petri Hastalığı ve esca (kav)
+129,ASCOMYCOTA,Phaeomoniella chlamydospora,,Asmalarda Petri Hastalığı ve esca (kav)
+130,ASCOMYCOTA,Phyllactinia guttata,,Fındıkta külleme
+131,ASCOMYCOTA,Phyllosticta ampelicida,,Bağ kara çürüklüğü (black rot)
+132,ASCOMYCOTA,Phyllosticta citricarpa,,Turunçgil siyah lekesi
+133,ASCOMYCOTA,Plenodomus lindquistii,= Phoma macdonaldii,Ayçiçeğinde siyah gövde çürüklüğü
+134,ASCOMYCOTA,Plenodomus lingam,"= Leptosphaeria maculans, = Phoma lingam",Lahanagillerde gövde kanseri / karabacak
+135,ASCOMYCOTA,Plenodomus tracheiphilus,,Turunçgillerde uç kurutan
+136,ASCOMYCOTA,Podosphaera aphanis,Sphaerotheca macularis,Çilek küllemesi
+137,ASCOMYCOTA,Podosphaera leucotricha,,Elma küllemesi
+138,ASCOMYCOTA,Podosphaera pannosa,,Şeftali küllemesi
+139,ASCOMYCOTA,Podosphaera pannosa,,Gül küllemesi
+140,ASCOMYCOTA,Podosphaera xanthii,,Kabakgillerde külleme
+141,ASCOMYCOTA,Polystigma amygdalinum,,Badem et leke hastalığı
+142,ASCOMYCOTA,Polystigma ochraceum,,Badem et leke hastalığı
+143,ASCOMYCOTA,Pseudocercospora cladosporioides,,Zeytinde yaprak lekesi
+144,ASCOMYCOTA,Pseudocercospora fijiensis,=Mycosphaerella fijiensis,Muzda siyah yaprak çizgisi (Kara Sigatoka)
+145,ASCOMYCOTA,Pseudocercospora griseola,,Fasulye köşeli yaprak lekesi
+146,ASCOMYCOTA,Pseudocercospora musae,Mycosphaerella musicola,Muzda yaprak lekesi (Sigatoka)
+147,ASCOMYCOTA,Pseudocercospora pistacina,,Antepfıstığında karazenk hastalığı
+148,ASCOMYCOTA,Pseudopyrenochaeta lycopersici,,Domateste kahverengi kök çürüklüğü
+149,ASCOMYCOTA,Pyrenophora graminea,,Arpa çizgi yaprak lekesi
+150,ASCOMYCOTA,Pyrenophora teres,,Arpa bitkisinde ağ benek hastalığı
+151,ASCOMYCOTA,Pyrenophora tritici-repentis,,Buğdayda sarı yaprak lekesi (sarı leke)
+152,ASCOMYCOTA,Pyricularia oryzae,,Çeltik yanıklığı
+153,ASCOMYCOTA,Ramularia beticola,,Pancar yaprak lekesi
+154,ASCOMYCOTA,Ramularia collo-cygni,,Arpa Ramularia yaprak lekesi
+155,ASCOMYCOTA,Ramularia grevilleana,=Mycosphaerella fragariae,Çilekte “kuş gözü” veya “yaprak lekesi”
+156,ASCOMYCOTA,Rhynchosporium graminicola,= R. commune; eski ad: R. secalis,Arpada yaprak lekesi/yaprak yanıklığı
+157,ASCOMYCOTA,Rhytisma spp.,,Akçaağaç katran lekesi
+158,ASCOMYCOTA,Rosellinia necatrix,,Rosellinia kök çürüklüğü veya beyaz çürüklük
+159,ASCOMYCOTA,Sarocladium oryzae,,Çeltik kın çürüklüğü
+160,ASCOMYCOTA,Sclerotinia minor,,Sebzelerde beyaz çürüklük
+161,ASCOMYCOTA,Sclerotinia sclerotiorum,,Sebzelerde beyaz çürüklük
+162,ASCOMYCOTA,Seimatosporium lichenicola,,Ahududu ve böğürtlende geriye ölüm
+163,ASCOMYCOTA,Septoria apiicola,,Kerevizde septorya yaprak lekesi
+164,ASCOMYCOTA,Septoria lycopersici,,Domateste septorya yaprak lekesi
+165,ASCOMYCOTA,Septoria petroselini,,Maydanozda septorya yaprak lekesi
+166,ASCOMYCOTA,Septoria pistaciae,,Antepfıstığında Septoria yaprak lekesi
+167,ASCOMYCOTA,Stagonosporopsis cucurbitacearum,= Didymella bryoniae,Kabakgillerde sakızlı gövde yanıklığı
+168,ASCOMYCOTA,Stemphylium vesicarium,,Armutta kahverengi leke
+169,ASCOMYCOTA,Stemphylium vesicarium,,Soğan ve sarımsakta yaprak yanıklığı
+170,ASCOMYCOTA,Stromatinia cepivora,= Sclerotium cepivorum,Soğan ve sarımsakta beyaz çürüklük
+171,ASCOMYCOTA,Taphrina betulina,,Huş ağacı cadı süpürgesi
+172,ASCOMYCOTA,Taphrina deformans,,Şeftali yaprak kıvırcıklığı (Glok)
+173,ASCOMYCOTA,Taphrina pruni,,Eriklerde cep hastalığı
+174,ASCOMYCOTA,Trichoderma aggressivum,,Kültür mantarında yeşil küf
+175,ASCOMYCOTA,Ulocladium cucurbitae,,Hıyar yaprak lekesi
+176,ASCOMYCOTA,Ustilaginoidea virens,,Çeltikte yalancı sürme
+177,ASCOMYCOTA,Venturia carpophila,= Cladosporium carpophilum,Şeftali karalekesi
+178,ASCOMYCOTA,Venturia inaequalis,,Elma kara lekesi
+179,ASCOMYCOTA,Venturia inaequalis var. eriobotryae,,Yenidünya karalekesi
+180,ASCOMYCOTA,Venturia oleaginea,= Spilocaea oleaginea,Zeytin ağaçlarında halkalı leke (tavus kuşu gözü)
+181,ASCOMYCOTA,Venturia pirina,,Armut kara lekesi
+182,ASCOMYCOTA,Verticillium dahliae,,Verticillium solgunluğu
+183,ASCOMYCOTA,Wilsonomyces carpophilus,,Sert çekirdekli meyvelerde yaprakdelen (Çil)
+184,ASCOMYCOTA,Zymoseptoria tritici,,Buğdayda septorya yaprak lekesi
+185,BASIDIOMYCOTA,Armillaria mellea,,Armillaria kök çürüklüğü
+186,BASIDIOMYCOTA,Athelia rolfsii,Sclerotium rolfsii,Güney yanıklığı
+187,BASIDIOMYCOTA,Cerotelium fici,,İncir pası
+188,BASIDIOMYCOTA,Exobasidium vaccinii,,Yaban mersini ve kızılcık yaprak galı
+189,BASIDIOMYCOTA,Exobasidium vexans,,Çay blister yanıklığı
+190,BASIDIOMYCOTA,Fomitiporia mediterranea,,Bağlarda beyaz odun çürüklüğü; eska kompleksiyle ilişkili
+191,BASIDIOMYCOTA,Gymnosporangium sabinae,= G. fuscum,Armut memeli pası
+192,BASIDIOMYCOTA,Helicobasidium brebissonii,,Menekşe kök çürüklüğü
+193,BASIDIOMYCOTA,Itersonilia spp.,,Havuç ve pastinaka siyah kanseri
+194,BASIDIOMYCOTA,Kuehneola uredinis,,Böğürtlen dal ve yaprak pası
+195,BASIDIOMYCOTA,Microbotryum dianthorum,,Karanfil anter rastığı
+196,BASIDIOMYCOTA,Microstroma juglandis,,Ceviz ve hickory beyaz küfü/lekesi
+197,BASIDIOMYCOTA,Phakopsora gossypii,,Pamukta tropikal pas (pamuk pası)
+198,BASIDIOMYCOTA,Phakopsora pachyrhizi,,Soya pası
+199,BASIDIOMYCOTA,Phellinus igniarius,,Sert odunlu ağaçlarda gövde çürüklüğü
+200,BASIDIOMYCOTA,Phlebia chrysocrea,,Meşe kalp çürüklüğü
+201,BASIDIOMYCOTA,Pholiota adiposa,,Akçaağaç benekli kalp çürüklüğü
+202,BASIDIOMYCOTA,Phragmidium mucronatum,,Gül pası
+203,BASIDIOMYCOTA,Puccinia allii,Puccinia porri,Soğan ve sarımsak pası
+204,BASIDIOMYCOTA,Puccinia asparagi,,Kuşkonmaz pası
+205,BASIDIOMYCOTA,Puccinia cacabata,,Pamukta güneybatı pamuk pası
+206,BASIDIOMYCOTA,Puccinia graminis tritici,,Buğday kara pası
+207,BASIDIOMYCOTA,Puccinia helianthi,,Ayçiçeği pası
+208,BASIDIOMYCOTA,Puccinia hordei,,Arpa yaprak pası
+209,BASIDIOMYCOTA,Puccinia triticina,,Buğday kahverengi pası (Yaprak pası)
+210,BASIDIOMYCOTA,Puccinia shedonnardi,,Pamuk pası
+211,BASIDIOMYCOTA,Puccinia sorghi,,Mısır adi pası
+212,BASIDIOMYCOTA,Puccinia striiformis,,Buğday sarı pası
+213,BASIDIOMYCOTA,Rhizoctonia cerealis,,Tahıllarda keskin göz lekesi
+214,BASIDIOMYCOTA,Rhizoctonia solani,,Patates kökboğazı nekrozu ve siyah siğil
+215,BASIDIOMYCOTA,Rhizoctonia solani,,Çeltik kın yanıklığı
+216,BASIDIOMYCOTA,Septobasidium spp.,,Keçe mantarı (Felt fungus)
+217,BASIDIOMYCOTA,Sporisorium reilianum,,Mısır baş rastığı
+218,BASIDIOMYCOTA,Stereum murraii,,Akçaağaç kanseri ve beyaz çürüklük
+219,BASIDIOMYCOTA,Tilletia caries,,Buğday adi sürmesi
+220,BASIDIOMYCOTA,Tilletia foetida,,Buğday adi sürmesi
+221,BASIDIOMYCOTA,Tilletia indica,,Buğday Karnal sürmesi
+222,BASIDIOMYCOTA,Tilletia horrida,,Çeltik tanesi rastığı (kara leke)
+223,BASIDIOMYCOTA,Tilletia controversa,,Buğday cüce sürmesi
+224,BASIDIOMYCOTA,Tolyposporium penicillariae,,Darı (Bajra) rastığı
+225,BASIDIOMYCOTA,Tranzschelia discolor,,Sert çekirdekli meyve ağaçlarında pas hastalığı
+226,BASIDIOMYCOTA,Tranzschelia pruni-spinosae,,Erik pası
+227,BASIDIOMYCOTA,Urocystis agropyri,=Urocystis tritici,Buğday bayrak rastığı
+228,BASIDIOMYCOTA,Urocystis cepulae,,Soğan sürmesi (Soğan rastığı)
+229,BASIDIOMYCOTA,Urocystis colchici,,Çiğdem sürmesi (yaprak sürmesi)
+230,BASIDIOMYCOTA,Uromyces appendiculatus,,Fasulye pası
+231,BASIDIOMYCOTA,Uromyces betae,,Şeker pancarı pası
+232,BASIDIOMYCOTA,Uromyces ciceris-arietini,,Nohut pası
+233,BASIDIOMYCOTA,Uromyces dianthi,,Karanfil pası
+234,BASIDIOMYCOTA,Ustilago hordei,,Arpa kapalı rastığı
+235,BASIDIOMYCOTA,Ustilago maydis,,Mısır rastığı
+236,BASIDIOMYCOTA,Ustilago nigra,,Arpa yarı açık rastığı
+237,BASIDIOMYCOTA,Ustilago nuda var. hordei,,Arpa açık rastığı
+238,BASIDIOMYCOTA,Ustilago tritici,,Buğday Açık Rastığı
+239,OOMYCOTA,Albugo bliti,,Amarant beyaz pası
+240,OOMYCOTA,Albugo candida,,Turpgillerde beyaz pas
+241,OOMYCOTA,Albugo ipomoeae-panduratae,,Tatlı patateste beyaz pas
+242,OOMYCOTA,Aphanomyces cochlioides,,Şeker pancarı çökerten hastalığı
+243,OOMYCOTA,Aphanomyces euteiches,,Bezelye kök çürüklüğü
+244,OOMYCOTA,Bremia lactucae,,Marul mildiyösü (Tüylü küf)
+245,OOMYCOTA,Hyaloperonospora brassicae,=Peronospora parasitica,Lahana tüylü küf
+246,OOMYCOTA,Peronosclerospora philippinensis,= Sclerospora philippinensis,Filipin mısır mildiyösü
+247,OOMYCOTA,Peronospora arborescens,,Haşhaş mildiyösü
+248,OOMYCOTA,Peronospora destructor,,Soğan mildiyösü (Tüylü küf)
+249,OOMYCOTA,Peronospora effusa,=Peronospora farinosa f. sp. spinaciae,Ispanak mildiyösü
+250,OOMYCOTA,Pseudoperonospora humuli,,Şerbetçiotu mildiyösü
+251,OOMYCOTA,Peronospora lentis,,Mercimek mildiyösü
+252,OOMYCOTA,Peronospora tabacina,,Tütün mildiyösü (Mavi küf)
+253,OOMYCOTA,Peronospora viciae,,Bezelye mildiyösü
+254,OOMYCOTA,Phytophthora cactorum,,"Kök ve kök boğazı çürüklüğü, yaka çürüklüğü"
+255,OOMYCOTA,Phytophthora capsici,,Biber kök boğazı yanıklığı
+256,OOMYCOTA,Phytophthora cinnamomi,,Bitkilerde kök çürüklüğü ve kuruma
+257,OOMYCOTA,Phytophthora citrophthora,,Turunçgillerde kahverengi çürüklük ve gövde zamklanması
+258,OOMYCOTA,Phytophthora erythroseptica,,Patateste pembe çürüklük
+259,OOMYCOTA,Phytophthora infestans,,Patates mildiyösü (Geç yanıklık)
+260,OOMYCOTA,Phytophthora fragariae,,Çilekte kırmızı kök çürüklüğü (Red stele)
+261,OOMYCOTA,Plasmopara halstedii,,Ayçiçeği mildiyösü
+262,OOMYCOTA,Phytophthora nicotianae,,Tütünde siyah sap (Black shank) hastalığı
+263,OOMYCOTA,Phytophthora phaseoli,,Fasulye mildiyösü
+264,OOMYCOTA,Phytophthora ramorum,,Ani meşe ölümü
+265,OOMYCOTA,Phytophthora sojae,,Soyada kök ve gövde çürüklüğü
+266,OOMYCOTA,Plasmopara crustosa,Plasmopara nivea,Maydanozgillerde mildiyö
+267,OOMYCOTA,Plasmopara viticola,,Bağ mildiyösü
+268,OOMYCOTA,Pseudoperonospora cubensis,,Kabakgillerde mildiyö
+269,OOMYCOTA,Pythium aphanidermatum,,Kabakgillerde kök çürüklüğü ve pamuklu sızıntı
+270,OOMYCOTA,Pythium debaryanum,,Fide yanıklığı
+271,OOMYCOTA,Pythium myriotylum,,Domateste Pythium kök çürüklüğü
+272,OOMYCOTA,Pythium spp.,,Tahıllarda Pythium kök çürüklüğü
+273,OOMYCOTA,Pythium ultimum,,Sebzelerde sulu yara çürüklüğü ve kök çürüklüğü
+274,OOMYCOTA,Sclerophthora macrospora,,Tahıllarda mildiyö; mısır ve sorgumda çılgın baş hastalığı
+275,OOMYCOTA,Sclerospora graminicola,,Darıda yeşil başak hastalığı
+276,OOMYCOTA,Wilsoniana occidentalis,,Ispanak beyaz pas hastalığı
+277,OOMYCOTA,Wilsoniana portulacae,,Semizotunda beyaz pas
+278,FAYDALI OOMYCOTA,Pythium oligandrum,,Bitki patojenlerine karşı kullanılan yararlı oomycete/biyolojik mücadele etmeni
+279,CERCOZOA,Plasmodiophora brassicae,,Lahanagillerde kök-ur hastalığı (clubroot)
+280,CERCOZOA,Spongospora subterranea,,Patates ve domateste tozlu uyuz (Köpüksü uyuz)
+281,CHYTRIDIOMYCOTA,Synchytrium endobioticum,,Patates siğili (kanseri)
+282,MUCOROMYCOTA,Rhizopus stolonifer,,Yumuşak Çürüklük
+283,MUCOROMYCOTA,Choanephora cucurbitarum,,Kabakgillerde meyve ve çiçek çürüklüğü
