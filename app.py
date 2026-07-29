@@ -7,6 +7,7 @@ PyInstaller ile paketlendiğinde hedef bilgisayarda Python kurulumu gerekmez.
 from __future__ import print_function
 
 import csv
+import json
 import hashlib
 
 # Bazı yeni kütüphaneler hashlib oluşturucularına "usedforsecurity"
@@ -45,7 +46,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 try:
     import tkinter as tk
-    from tkinter import filedialog, messagebox, simpledialog, ttk
+    from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
 except ImportError:  # pragma: no cover
     import Tkinter as tk
     import tkFileDialog as filedialog
@@ -78,8 +79,15 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    OPENPYXL_AVAILABLE = False
+
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "0.9.2"
+APP_VERSION = "1.0.0"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),
@@ -211,6 +219,14 @@ class Database(object):
 
             CREATE INDEX IF NOT EXISTS idx_attachments_disease ON attachments(disease_id);
             CREATE INDEX IF NOT EXISTS idx_references_disease ON disease_references(disease_id);
+
+            CREATE TABLE IF NOT EXISTS disease_rich_text (
+                disease_id INTEGER NOT NULL,
+                field_name TEXT NOT NULL,
+                formatting_json TEXT NOT NULL DEFAULT '{}',
+                PRIMARY KEY (disease_id, field_name),
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE
+            );
             """
         )
         disease_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(diseases)").fetchall()]
@@ -461,6 +477,80 @@ class Database(object):
             for row in rows:
                 writer.writerow(dict(row))
 
+    def rich_text(self, disease_id):
+        rows = self.conn.execute(
+            "SELECT field_name, formatting_json FROM disease_rich_text WHERE disease_id = ?",
+            (disease_id,),
+        ).fetchall()
+        result = {}
+        for row in rows:
+            try:
+                result[row["field_name"]] = json.loads(row["formatting_json"] or "{}")
+            except Exception:
+                result[row["field_name"]] = {}
+        return result
+
+    def save_rich_text(self, disease_id, rich_data):
+        self.conn.execute("DELETE FROM disease_rich_text WHERE disease_id = ?", (disease_id,))
+        for field_name, formatting in (rich_data or {}).items():
+            if formatting:
+                self.conn.execute(
+                    """INSERT INTO disease_rich_text (disease_id, field_name, formatting_json)
+                       VALUES (?, ?, ?)""",
+                    (disease_id, field_name, json.dumps(formatting, ensure_ascii=False)),
+                )
+        self.conn.commit()
+
+    def export_excel(self, output_path):
+        if not OPENPYXL_AVAILABLE:
+            raise RuntimeError("Excel dışa aktarımı için openpyxl bileşeni bulunamadı.")
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Hastalıklar"
+        labels = {
+            "id": "ID", "group_name": "Etmen grubu", "scientific_name": "Bilimsel ad",
+            "synonyms": "Sinonimler", "disease_name": "Hastalık adı",
+            "hosts": "Konukçular", "affected_organs": "Etkilenen organlar",
+            "symptoms": "Belirtiler", "pathogen_features": "Etmenin özellikleri",
+            "disease_cycle": "Hastalık döngüsü", "epidemiology": "Epidemiyoloji",
+            "differential_diagnosis": "Ayırıcı teşhis",
+            "cultural_control": "Kültürel mücadele",
+            "biological_control": "Biyolojik mücadele",
+            "chemical_control": "Kimyasal mücadele",
+            "distribution_turkey": "Türkiye dağılımı",
+            "distribution_world": "Dünya dağılımı",
+            "climate_notes": "İklim / çevre notları",
+            "sources": "Kaynaklar", "notes": "Notlar", "favorite": "Favori",
+            "created_at": "Oluşturulma", "updated_at": "Güncellenme",
+        }
+        sheet.append([labels.get(field, field) for field in ALL_DB_FIELDS])
+        for cell in sheet[1]:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        rows = self.conn.execute("SELECT * FROM diseases ORDER BY scientific_name").fetchall()
+        for row in rows:
+            sheet.append([row[field] for field in ALL_DB_FIELDS])
+        for column in sheet.columns:
+            max_len = max(len(str(cell.value or "")) for cell in column)
+            sheet.column_dimensions[column[0].column_letter].width = min(max(max_len + 2, 12), 45)
+            for cell in column:
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+        sheet.freeze_panes = "A2"
+        workbook.save(output_path)
+
+    def duplicate_candidates(self):
+        rows = self.conn.execute(
+            "SELECT id, scientific_name, disease_name FROM diseases ORDER BY scientific_name"
+        ).fetchall()
+        groups = {}
+        for row in rows:
+            sci = re.sub(r"[^a-z0-9çğıöşü]+", "", (row["scientific_name"] or "").lower())
+            dis = re.sub(r"[^a-z0-9çğıöşü]+", "", (row["disease_name"] or "").lower())
+            for kind, key in (("Bilimsel ad", sci), ("Hastalık adı", dis)):
+                if key:
+                    groups.setdefault((kind, key), []).append(row)
+        return [(kind, values) for (kind, _key), values in groups.items() if len(values) > 1]
+
     def toggle_favorite(self, disease_id):
         row = self.get(disease_id)
         if not row:
@@ -540,8 +630,112 @@ class Database(object):
             target.close()
 
 
+
+class RichTextEditor(ttk.Frame):
+    """Tk Text üzerinde temel biçimlendirme ve JSON olarak saklama."""
+
+    def __init__(self, master, value="", formatting=None, height=6):
+        ttk.Frame.__init__(self, master)
+        self.color_tags = {}
+        toolbar = ttk.Frame(self)
+        toolbar.pack(fill="x", pady=(0, 3))
+
+        ttk.Button(toolbar, text="B", width=3, command=lambda: self.toggle_tag("bold")).pack(side="left")
+        ttk.Button(toolbar, text="I", width=3, command=lambda: self.toggle_tag("italic")).pack(side="left", padx=2)
+        ttk.Button(toolbar, text="U", width=3, command=lambda: self.toggle_tag("underline")).pack(side="left")
+        ttk.Button(toolbar, text="Renk", command=self.choose_color).pack(side="left", padx=(6, 2))
+        ttk.Button(toolbar, text="Biçimi temizle", command=self.clear_formatting).pack(side="left")
+        ttk.Label(toolbar, text="  Seçili metne uygulanır").pack(side="left")
+
+        body = ttk.Frame(self)
+        body.pack(fill="both", expand=True)
+        self.text = tk.Text(body, height=height, wrap="word", undo=True)
+        scroll = ttk.Scrollbar(body, orient="vertical", command=self.text.yview)
+        self.text.configure(yscrollcommand=scroll.set)
+        self.text.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        normal_font = ("Segoe UI", 9)
+        self.text.configure(font=normal_font)
+        self.text.tag_configure("bold", font=("Segoe UI", 9, "bold"))
+        self.text.tag_configure("italic", font=("Segoe UI", 9, "italic"))
+        self.text.tag_configure("underline", underline=True)
+        self.text.insert("1.0", value or "")
+        self.apply_formatting(formatting or {})
+
+    def _selection(self):
+        try:
+            return self.text.index("sel.first"), self.text.index("sel.last")
+        except tk.TclError:
+            return None
+
+    def toggle_tag(self, tag):
+        selection = self._selection()
+        if not selection:
+            return
+        start, end = selection
+        if tag in self.text.tag_names(start):
+            self.text.tag_remove(tag, start, end)
+        else:
+            self.text.tag_add(tag, start, end)
+
+    def choose_color(self):
+        selection = self._selection()
+        if not selection:
+            return
+        color = colorchooser.askcolor(parent=self.winfo_toplevel())[1]
+        if not color:
+            return
+        tag = "color_" + color.replace("#", "")
+        if tag not in self.color_tags:
+            self.text.tag_configure(tag, foreground=color)
+            self.color_tags[tag] = color
+        self.text.tag_add(tag, selection[0], selection[1])
+
+    def clear_formatting(self):
+        selection = self._selection()
+        if not selection:
+            return
+        for tag in self.text.tag_names():
+            if tag in ("sel",):
+                continue
+            self.text.tag_remove(tag, selection[0], selection[1])
+
+    def get_value(self):
+        return self.text.get("1.0", "end-1c").strip()
+
+    def serialize(self):
+        result = {"tags": []}
+        for tag in self.text.tag_names():
+            if tag in ("sel",):
+                continue
+            ranges = self.text.tag_ranges(tag)
+            if not ranges:
+                continue
+            item = {"name": tag, "ranges": []}
+            if tag.startswith("color_"):
+                item["color"] = "#" + tag.split("_", 1)[1]
+            for index in range(0, len(ranges), 2):
+                item["ranges"].append([str(ranges[index]), str(ranges[index + 1])])
+            result["tags"].append(item)
+        return result if result["tags"] else {}
+
+    def apply_formatting(self, formatting):
+        for item in formatting.get("tags", []):
+            tag = item.get("name", "")
+            if tag.startswith("color_"):
+                color = item.get("color") or ("#" + tag.split("_", 1)[1])
+                self.text.tag_configure(tag, foreground=color)
+                self.color_tags[tag] = color
+            for start, end in item.get("ranges", []):
+                try:
+                    self.text.tag_add(tag, start, end)
+                except tk.TclError:
+                    pass
+
+
 class DiseaseEditor(tk.Toplevel):
-    def __init__(self, master, groups, initial=None, on_save=None):
+    def __init__(self, master, groups, initial=None, rich_initial=None, on_save=None):
         tk.Toplevel.__init__(self, master)
         self.title("Kayıt düzenle" if initial else "Yeni kayıt")
         self.transient(master)
@@ -560,6 +754,7 @@ class DiseaseEditor(tk.Toplevel):
         self.minsize(min(700, win_w), min(500, win_h))
         self.initial = dict(initial) if initial else {}
         self.on_save = on_save
+        self.rich_initial = rich_initial or {}
         self.vars = {}
         self.texts = {}
 
@@ -600,14 +795,22 @@ class DiseaseEditor(tk.Toplevel):
         ]:
             ttk.Label(basic, text=label).grid(row=row, column=0, sticky="nw", pady=5)
             if field in ("hosts", "affected_organs"):
-                widget = tk.Text(basic, height=4, wrap="word")
-                widget.insert("1.0", self.initial.get(field, "") or "")
-                widget.grid(row=row, column=1, sticky="nsew", pady=5)
-                self.texts[field] = widget
+                editor = RichTextEditor(
+                    basic,
+                    value=self.initial.get(field, "") or "",
+                    formatting=self.rich_initial.get(field, {}),
+                    height=4,
+                )
+                editor.grid(row=row, column=1, sticky="nsew", pady=5)
+                self.texts[field] = editor
                 basic.rowconfigure(row, weight=1)
             else:
                 var = tk.StringVar(value=self.initial.get(field, "") or "")
-                ttk.Entry(basic, textvariable=var).grid(row=row, column=1, sticky="ew", pady=5)
+                if field == "scientific_name":
+                    entry = tk.Entry(basic, textvariable=var, font=("Segoe UI", 9, "italic"))
+                    entry.grid(row=row, column=1, sticky="ew", pady=5)
+                else:
+                    ttk.Entry(basic, textvariable=var).grid(row=row, column=1, sticky="ew", pady=5)
                 self.vars[field] = var
             row += 1
 
@@ -638,10 +841,14 @@ class DiseaseEditor(tk.Toplevel):
             for idx, (field, label) in enumerate(fields):
                 frame.rowconfigure(idx * 2 + 1, weight=1)
                 ttk.Label(frame, text=label).grid(row=idx * 2, column=0, sticky="w", pady=(5, 2))
-                text = tk.Text(frame, height=6, wrap="word", undo=True)
-                text.insert("1.0", self.initial.get(field, "") or "")
-                text.grid(row=idx * 2 + 1, column=0, sticky="nsew", pady=(0, 7))
-                self.texts[field] = text
+                editor = RichTextEditor(
+                    frame,
+                    value=self.initial.get(field, "") or "",
+                    formatting=self.rich_initial.get(field, {}),
+                    height=6,
+                )
+                editor.grid(row=idx * 2 + 1, column=0, sticky="nsew", pady=(0, 7))
+                self.texts[field] = editor
 
         self.bind("<Escape>", lambda _e: self.destroy())
         self.bind("<Control-s>", lambda _e: self.save())
@@ -651,8 +858,13 @@ class DiseaseEditor(tk.Toplevel):
         data = {}
         for field, var in self.vars.items():
             data[field] = var.get().strip()
-        for field, text in self.texts.items():
-            data[field] = text.get("1.0", "end-1c").strip()
+        rich_data = {}
+        for field, editor in self.texts.items():
+            data[field] = editor.get_value()
+            formatting = editor.serialize()
+            if formatting:
+                rich_data[field] = formatting
+        data["_rich_text"] = rich_data
         if not data.get("scientific_name"):
             messagebox.showwarning(APP_NAME, "Bilimsel ad boş bırakılamaz.", parent=self)
             return
@@ -871,6 +1083,7 @@ class MainWindow(tk.Tk):
         self.minsize(960, 620)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.after_idle(self.maximize_window)
+        self.after(1200, self.automatic_daily_backup)
 
         self.search_var = tk.StringVar()
         self.group_var = tk.StringVar(value="TÜMÜ")
@@ -906,6 +1119,8 @@ class MainWindow(tk.Tk):
         toolbar = ttk.Frame(self, padding=8)
         toolbar.pack(fill="x")
         ttk.Button(toolbar, text="Yeni kayıt", command=self.new_record).pack(side="left")
+        ttk.Button(toolbar, text="◀ Önceki", command=self.previous_record).pack(side="left", padx=(6, 0))
+        ttk.Button(toolbar, text="Sonraki ▶", command=self.next_record).pack(side="left", padx=(2, 6))
         ttk.Button(toolbar, text="Düzenle", command=self.edit_record).pack(side="left", padx=4)
         ttk.Button(toolbar, text="Sil", command=self.delete_record).pack(side="left")
         ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=8)
@@ -959,7 +1174,7 @@ class MainWindow(tk.Tk):
 
         header = ttk.Frame(right)
         header.pack(fill="x", pady=(0, 8))
-        ttk.Label(header, textvariable=self.header_scientific, font=("Segoe UI", 13, "bold"), wraplength=700).pack(anchor="w")
+        ttk.Label(header, textvariable=self.header_scientific, font=("Segoe UI", 13, "bold italic"), wraplength=700).pack(anchor="w")
         ttk.Label(header, textvariable=self.header_disease, font=("Segoe UI", 10), wraplength=700).pack(anchor="w", pady=(2, 0))
         ttk.Label(header, textvariable=self.header_group).pack(anchor="w", pady=(2, 0))
 
@@ -1026,6 +1241,114 @@ class MainWindow(tk.Tk):
         status = ttk.Label(self, textvariable=self.status_var, anchor="w", relief="sunken", padding=(6, 3))
         status.pack(fill="x", side="bottom")
 
+    @staticmethod
+    def apply_rich_to_text(text_widget, formatting):
+        text_widget.tag_configure("bold", font=("Segoe UI", 9, "bold"))
+        text_widget.tag_configure("italic", font=("Segoe UI", 9, "italic"))
+        text_widget.tag_configure("underline", underline=True)
+        for item in formatting.get("tags", []):
+            tag = item.get("name", "")
+            if tag.startswith("color_"):
+                text_widget.tag_configure(tag, foreground=item.get("color", "#000000"))
+            for start, end in item.get("ranges", []):
+                try:
+                    text_widget.tag_add(tag, start, end)
+                except tk.TclError:
+                    pass
+
+    def previous_record(self):
+        items = list(self.tree.get_children())
+        if not items:
+            return
+        current = str(self.selected_id) if self.selected_id else items[0]
+        try:
+            index = items.index(current)
+        except ValueError:
+            index = 0
+        target = items[(index - 1) % len(items)]
+        self.tree.selection_set(target)
+        self.tree.focus(target)
+        self.tree.see(target)
+        self.load_record(int(target))
+
+    def next_record(self):
+        items = list(self.tree.get_children())
+        if not items:
+            return
+        current = str(self.selected_id) if self.selected_id else items[0]
+        try:
+            index = items.index(current)
+        except ValueError:
+            index = -1
+        target = items[(index + 1) % len(items)]
+        self.tree.selection_set(target)
+        self.tree.focus(target)
+        self.tree.see(target)
+        self.load_record(int(target))
+
+    def automatic_daily_backup(self):
+        try:
+            today = dt.datetime.now().strftime("%Y-%m-%d")
+            marker = os.path.join(self.paths.backups, ".last_auto_backup")
+            last_date = ""
+            if os.path.isfile(marker):
+                with open(marker, "r", encoding="utf-8") as handle:
+                    last_date = handle.read().strip()
+            if last_date == today:
+                return
+            output = os.path.join(self.paths.backups, "Otomatik_Yedek_{}.zip".format(today))
+            self._write_backup_zip(output)
+            with open(marker, "w", encoding="utf-8") as handle:
+                handle.write(today)
+            self.status_var.set("Günlük otomatik yedek oluşturuldu: {}".format(os.path.basename(output)))
+        except Exception as exc:
+            self.status_var.set("Otomatik yedek oluşturulamadı: {}".format(exc))
+
+    def export_excel(self):
+        if not OPENPYXL_AVAILABLE:
+            messagebox.showerror(APP_NAME, "Excel dışa aktarımı için openpyxl bileşeni bulunamadı.", parent=self)
+            return
+        output = filedialog.asksaveasfilename(
+            title="Excel dışa aktar",
+            initialdir=self.paths.exports,
+            initialfile="fitopatoloji_{}.xlsx".format(dt.datetime.now().strftime("%Y-%m-%d")),
+            defaultextension=".xlsx",
+            filetypes=[("Excel dosyası", "*.xlsx")],
+        )
+        if not output:
+            return
+        try:
+            self.db.export_excel(output)
+            messagebox.showinfo(APP_NAME, "Excel dosyası oluşturuldu:\n{}".format(output), parent=self)
+        except Exception as exc:
+            messagebox.showerror(APP_NAME, "Excel oluşturulamadı:\n{}".format(exc), parent=self)
+
+    def find_duplicates(self):
+        duplicates = self.db.duplicate_candidates()
+        dialog = tk.Toplevel(self)
+        dialog.title("Olası tekrar kayıtlar")
+        dialog.geometry("850x520")
+        dialog.transient(self)
+        tree = ttk.Treeview(dialog, columns=("reason", "id", "scientific", "disease"), show="headings")
+        for col, title, width in [
+            ("reason", "Eşleşme", 110), ("id", "ID", 60),
+            ("scientific", "Bilimsel ad", 280), ("disease", "Hastalık adı", 330)
+        ]:
+            tree.heading(col, text=title)
+            tree.column(col, width=width, anchor="w")
+        tree.pack(fill="both", expand=True, padx=10, pady=10)
+        for reason, rows in duplicates:
+            for row in rows:
+                tree.insert("", "end", iid="{}-{}-{}".format(reason, row["id"], len(tree.get_children())),
+                            values=(reason, row["id"], row["scientific_name"], row["disease_name"]))
+        ttk.Label(
+            dialog,
+            text="Bu ekran olası tekrarları gösterir; yanlış veri kaybını önlemek için otomatik birleştirme yapmaz.",
+            padding=(10, 0, 10, 8),
+        ).pack(fill="x")
+        if not duplicates:
+            ttk.Label(dialog, text="Olası tekrar kayıt bulunamadı.", padding=20).place(relx=.5, rely=.5, anchor="center")
+
     def refresh_groups(self):
         groups = ["TÜMÜ"] + self.db.list_groups()
         self.group_combo["values"] = groups
@@ -1070,11 +1393,13 @@ class MainWindow(tk.Tk):
         self.header_disease.set(record["disease_name"])
         self.header_group.set(("★ " if record["favorite"] else "") + record["group_name"])
         self.refresh_summary_card(record)
-        for field, text in self.detail_texts.items():
-            text.configure(state="normal")
-            text.delete("1.0", "end")
-            text.insert("1.0", record[field] or "")
-            text.configure(state="disabled")
+        rich_map = self.db.rich_text(disease_id)
+        for field, text_widget in self.detail_texts.items():
+            text_widget.configure(state="normal")
+            text_widget.delete("1.0", "end")
+            text_widget.insert("1.0", record[field] or "")
+            self.apply_rich_to_text(text_widget, rich_map.get(field, {}))
+            text_widget.configure(state="disabled")
         self.refresh_attachments()
 
     def clear_detail(self):
@@ -1101,7 +1426,9 @@ class MainWindow(tk.Tk):
         DiseaseEditor(self, groups, on_save=self._save_new)
 
     def _save_new(self, data):
+        rich_data = data.pop("_rich_text", {})
         new_id = self.db.add(data)
+        self.db.save_rich_text(new_id, rich_data)
         self.refresh_groups()
         self.refresh_list(select_id=new_id)
 
@@ -1111,10 +1438,12 @@ class MainWindow(tk.Tk):
             return
         record = self.db.get(self.selected_id)
         groups = self.db.list_groups()
-        DiseaseEditor(self, groups, initial=record, on_save=self._save_edit)
+        DiseaseEditor(self, groups, initial=record, rich_initial=self.db.rich_text(self.selected_id), on_save=self._save_edit)
 
     def _save_edit(self, data):
+        rich_data = data.pop("_rich_text", {})
         self.db.update(self.selected_id, data)
+        self.db.save_rich_text(self.selected_id, rich_data)
         self.refresh_groups()
         self.refresh_list(select_id=self.selected_id)
 
@@ -1896,6 +2225,8 @@ def self_test():
             "favorite": 1,
         })
         assert db.get(new_id)["scientific_name"] == "Testus exemplum"
+        db.save_rich_text(new_id, {"symptoms": {"tags": [{"name": "italic", "ranges": [["1.0", "1.4"]]}]}})
+        assert db.rich_text(new_id)["symptoms"]["tags"][0]["name"] == "italic"
 
         db.update(new_id, {
             "group_name": "TEST",
