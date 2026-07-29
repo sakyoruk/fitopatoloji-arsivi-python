@@ -7,6 +7,31 @@ PyInstaller ile paketlendiğinde hedef bilgisayarda Python kurulumu gerekmez.
 from __future__ import print_function
 
 import csv
+import hashlib
+
+# Bazı yeni kütüphaneler hashlib oluşturucularına "usedforsecurity"
+# parametresi gönderir. Windows 7 için kullanılan Python 3.8'in bazı
+# derlemeleri bu parametreyi kabul etmez.
+def _make_hashlib_compatible(name):
+    original = getattr(hashlib, name, None)
+    if original is None:
+        return
+    try:
+        original(b"", usedforsecurity=False)
+        return
+    except TypeError:
+        pass
+
+    def compatible(data=b"", *args, **kwargs):
+        kwargs.pop("usedforsecurity", None)
+        return original(data, *args, **kwargs)
+
+    setattr(hashlib, name, compatible)
+
+for _hash_name in ("md5", "sha1", "sha224", "sha256", "sha384", "sha512"):
+    _make_hashlib_compatible(_hash_name)
+del _hash_name
+
 import datetime as dt
 import os
 import re
@@ -54,7 +79,7 @@ except ImportError:
     REPORTLAB_AVAILABLE = False
 
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "0.9.1"
+APP_VERSION = "0.9.2"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),
