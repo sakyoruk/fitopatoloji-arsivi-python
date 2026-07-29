@@ -87,7 +87,7 @@ except ImportError:
     OPENPYXL_AVAILABLE = False
 
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),

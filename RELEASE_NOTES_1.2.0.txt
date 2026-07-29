@@ -1,0 +1,16 @@
+Fitopatoloji Arşivi 1.2.0
+
+Yeni:
+- Fotoğraf üzerinde ok, dikdörtgen, daire ve serbest kalem çizimi
+- Silgi, geri alma ve tümünü silme
+- Renk seçimi
+- İşaretlemeleri SQLite veritabanında kalıcı saklama
+- Fotoğraf yeniden açıldığında işaretlemeleri otomatik yükleme
+- Kaydedilmemiş değişiklik uyarısı
+- Ctrl+S ve Ctrl+Z kısayolları
+
+Kullanım:
+1. Fotoğraf galerisini açın.
+2. Ok, Dikdörtgen, Daire veya Kalem aracını seçin.
+3. Fotoğrafın üzerinde sol fare tuşuyla sürükleyin.
+4. Kaydet düğmesine basın.

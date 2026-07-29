@@ -79,6 +79,13 @@ class Database(object):
                 PRIMARY KEY (disease_id, field_name),
                 FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS attachment_annotations (
+                attachment_id INTEGER PRIMARY KEY,
+                annotations_json TEXT NOT NULL DEFAULT '[]',
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(attachment_id) REFERENCES attachments(id) ON DELETE CASCADE
+            );
             """
         )
         disease_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(diseases)").fetchall()]
@@ -471,6 +478,30 @@ class Database(object):
         self.conn.execute(
             "UPDATE attachments SET description = ? WHERE id = ?",
             ((description or "").strip(), attachment_id),
+        )
+        self.conn.commit()
+
+
+    def attachment_annotations(self, attachment_id):
+        row = self.conn.execute(
+            "SELECT annotations_json FROM attachment_annotations WHERE attachment_id = ?",
+            (attachment_id,),
+        ).fetchone()
+        if not row:
+            return []
+        try:
+            value = json.loads(row["annotations_json"] or "[]")
+            return value if isinstance(value, list) else []
+        except Exception:
+            return []
+
+    def save_attachment_annotations(self, attachment_id, annotations):
+        now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        payload = json.dumps(annotations or [], ensure_ascii=False, separators=(",", ":"))
+        self.conn.execute(
+            """INSERT OR REPLACE INTO attachment_annotations
+               (attachment_id, annotations_json, updated_at) VALUES (?, ?, ?)""",
+            (attachment_id, payload, now),
         )
         self.conn.commit()
 
