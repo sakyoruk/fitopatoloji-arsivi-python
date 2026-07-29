@@ -1,0 +1,10 @@
+Fitopatoloji Arşivi 1.5.0 — Modern Arayüz ve Kullanılabilirlik
+
+- Windows 7 uyumlu modern ttk tema eklendi.
+- Sol gezinti paneli eklendi.
+- Ana ekran başlığı ve hızlı işlem alanı yenilendi.
+- Kayıt listesi, sekmeler, düğmeler ve form yüzeyleri yeniden tasarlandı.
+- Seçili kayıt için daha temiz başlık ve işlem alanı eklendi.
+- Fotoğraf/belge paneli sadeleştirildi.
+- Renkler, boşluklar, satır yükseklikleri ve yazı hiyerarşisi iyileştirildi.
+- Mevcut veritabanı ve özelliklerle geriye dönük uyumluluk korundu.
