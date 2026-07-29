@@ -1,0 +1,17 @@
+Fitopatoloji Arşivi 1.6.0 — Akıllı Kayıt Düzenleyici ve İnceleme
+
+Yeni özellikler
+- Seçili hastalığın bütün bilgilerini tek sayfada gösteren “İncele” penceresi.
+- İnceleme penceresinde ana ve ek fotoğrafların gösterilmesi/gizlenmesi.
+- Yazı boyutunu büyütme ve küçültme.
+- İnceleme ekranından PDF raporu oluşturma.
+- HTML olarak dışa aktarma ve tarayıcı üzerinden yazdırma önizlemesi.
+- Salt okunur görünüm: inceleme sırasında kayıt verileri değiştirilmez.
+- Kayıt düzenleyicide tamamlanma yüzdesi.
+- Zorunlu ve önerilen alanların işaretlenmesi.
+- Kaydedilmemiş değişiklik takibi ve güvenli çıkış uyarısı.
+- Ctrl+S ile hızlı kaydetme.
+
+Uyumluluk
+- Mevcut veritabanı yapısı değiştirilmedi.
+- Windows 7 SP1 x64 ve mevcut PyInstaller iş akışı korunmuştur.

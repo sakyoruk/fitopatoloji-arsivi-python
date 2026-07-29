@@ -3,6 +3,7 @@ from .common import *
 from .editor import DiseaseEditor
 from .gallery import PhotoGallery
 from .comparison import DiseaseComparison
+from .preview import DiseasePreview
 from .theme import apply_theme, COLORS
 
 class MainWindow(tk.Tk):
@@ -63,6 +64,7 @@ class MainWindow(tk.Tk):
 
         ttk.Button(nav, text="＋  Yeni kayıt", style="Nav.TButton", command=self.new_record).pack(fill="x")
         ttk.Button(nav, text="✎  Kaydı düzenle", style="Nav.TButton", command=self.edit_record).pack(fill="x")
+        ttk.Button(nav, text="▤  İncele", style="Nav.TButton", command=self.preview_record).pack(fill="x")
         ttk.Button(nav, text="★  Favori", style="Nav.TButton", command=self.toggle_favorite).pack(fill="x")
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
         ttk.Button(nav, text="⌕  Gelişmiş filtre", style="Nav.TButton", command=self.open_advanced_filter).pack(fill="x")
@@ -138,6 +140,7 @@ class MainWindow(tk.Tk):
         ttk.Label(heading_box, textvariable=self.header_group, style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
         record_actions = ttk.Frame(record_header, style="Surface.TFrame")
         record_actions.pack(side="right")
+        ttk.Button(record_actions, text="İncele", style="Primary.TButton", command=self.preview_record).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Düzenle", command=self.edit_record).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Sil", style="Danger.TButton", command=self.delete_record).pack(side="left")
 
@@ -394,6 +397,15 @@ class MainWindow(tk.Tk):
         self.db.save_rich_text(new_id, rich_data)
         self.refresh_groups()
         self.refresh_list(select_id=new_id)
+
+    def preview_record(self):
+        if not self.selected_id:
+            messagebox.showinfo(APP_NAME, "Önce bir kayıt seçin.", parent=self)
+            return
+        DiseasePreview(
+            self, self.db, self.paths, self.selected_id,
+            pdf_callback=self.export_pdf_report,
+        )
 
     def edit_record(self):
         if not self.selected_id:
