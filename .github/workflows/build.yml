@@ -6,7 +6,6 @@ on:
 jobs:
   build:
     runs-on: windows-2022
-
     env:
       PYTHONIOENCODING: utf-8
       PYTHONUTF8: "1"
@@ -19,34 +18,34 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.8"
-          architecture: "x64"
 
-      - name: PyInstaller kur
-        run: python -m pip install "pyinstaller==6.7.0"
+      - name: PyInstaller ve Pillow kur
+        run: python -m pip install --upgrade pip pyinstaller pillow
 
       - name: Uygulamayi test et
         run: python app.py --self-test
 
       - name: EXE olustur
-        shell: powershell
-        run: |
-          python -m PyInstaller `
-            --noconfirm `
-            --clean `
-            --onedir `
-            --windowed `
-            --name FitopatolojiArsivi `
-            --add-data "seed/diseases.csv;seed" `
-            app.py
+        run: >
+          pyinstaller
+          --noconfirm
+          --clean
+          --windowed
+          --onefile
+          --name FitopatolojiArsivi
+          --hidden-import=PIL._tkinter_finder
+          --add-data "seed;seed"
+          app.py
 
       - name: Kullanma dosyasini kopyala
-        shell: powershell
+        shell: pwsh
         run: |
-          Copy-Item "KULLANIM.txt" "dist\FitopatolojiArsivi\KULLANIM.txt" -Force
+          New-Item -ItemType Directory -Force -Path paket | Out-Null
+          Copy-Item dist\FitopatolojiArsivi.exe paket\
+          if (Test-Path README.md) { Copy-Item README.md paket\ }
 
       - name: Indirilebilir paket olustur
         uses: actions/upload-artifact@v4
         with:
           name: FitopatolojiArsivi-Windows
-          path: dist/FitopatolojiArsivi
-          retention-days: 30
+          path: paket
