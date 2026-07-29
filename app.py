@@ -16,6 +16,7 @@ import sys
 import tempfile
 import uuid
 import zipfile
+from xml.sax.saxutils import escape as xml_escape
 
 try:
     import tkinter as tk
@@ -53,7 +54,7 @@ except ImportError:
     REPORTLAB_AVAILABLE = False
 
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "0.9.0"
+APP_VERSION = "0.9.1"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),
@@ -598,6 +599,11 @@ class DiseaseEditor(tk.Toplevel):
                 ("biological_control", "Biyolojik mücadele"),
                 ("chemical_control", "Kimyasal mücadele / prensipler"),
             ]),
+            (distribution, [
+                ("distribution_turkey", "Türkiye dağılımı"),
+                ("distribution_world", "Dünya dağılımı"),
+                ("climate_notes", "İklim / çevre notları"),
+            ]),
             (references, [
                 ("sources", "Kaynaklar"),
                 ("notes", "Kişisel notlar"),
@@ -839,6 +845,7 @@ class MainWindow(tk.Tk):
         self.geometry("1220x760")
         self.minsize(960, 620)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.after_idle(self.maximize_window)
 
         self.search_var = tk.StringVar()
         self.group_var = tk.StringVar(value="TÜMÜ")
@@ -858,6 +865,17 @@ class MainWindow(tk.Tk):
         self.build_ui()
         self.refresh_groups()
         self.refresh_list()
+
+    def maximize_window(self):
+        try:
+            self.state("zoomed")
+        except Exception:
+            try:
+                self.attributes("-zoomed", True)
+            except Exception:
+                screen_w = self.winfo_screenwidth()
+                screen_h = self.winfo_screenheight()
+                self.geometry("{}x{}+0+0".format(screen_w, max(600, screen_h - 40)))
 
     def build_ui(self):
         toolbar = ttk.Frame(self, padding=8)
@@ -1519,6 +1537,11 @@ class MainWindow(tk.Tk):
         for row in stats["groups"]:
             group_tree.insert("", "end", values=(row["label"], row["total"]))
 
+    @staticmethod
+    def _pdf_text(value):
+        value = "" if value is None else str(value)
+        return xml_escape(value).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br/>")
+
     def _register_pdf_font(self):
         if not REPORTLAB_AVAILABLE:
             return "Helvetica", "Helvetica-Bold"
@@ -1582,8 +1605,8 @@ class MainWindow(tk.Tk):
                 author=APP_NAME,
             )
             story = [
-                Paragraph(record["scientific_name"], title_style),
-                Paragraph(record["disease_name"], ParagraphStyle(
+                Paragraph(self._pdf_text(record["scientific_name"]), title_style),
+                Paragraph(self._pdf_text(record["disease_name"]), ParagraphStyle(
                     "Sub", parent=body_style, fontName=bold_name,
                     fontSize=12, alignment=TA_CENTER, spaceAfter=10
                 )),
@@ -1623,7 +1646,7 @@ class MainWindow(tk.Tk):
                 value = (record[field] or "").strip()
                 if value:
                     story.append(Paragraph(title, heading_style))
-                    story.append(Paragraph(value.replace("\n", "<br/>"), body_style))
+                    story.append(Paragraph(self._pdf_text(value), body_style))
 
             refs = self.db.references(self.selected_id)
             if refs:
@@ -1632,16 +1655,18 @@ class MainWindow(tk.Tk):
                     line = "{}: {}".format(ref["source_type"], ref["citation"])
                     if ref["identifier"]:
                         line += " - " + ref["identifier"]
-                    story.append(Paragraph("• " + line, body_style))
+                    story.append(Paragraph(self._pdf_text("• " + line), body_style))
 
             story.append(Spacer(1, 0.4 * cm))
             story.append(Paragraph(
-                "{} {} tarafından {} tarihinde oluşturuldu.".format(
+                self._pdf_text("{} {} tarafından {} tarihinde oluşturuldu.".format(
                     APP_NAME, APP_VERSION, dt.datetime.now().strftime("%d.%m.%Y %H:%M")
-                ),
+                )),
                 ParagraphStyle("Footer", parent=body_style, fontSize=7, textColor=colors.grey)
             ))
             doc.build(story)
+            if not os.path.isfile(output) or os.path.getsize(output) < 100:
+                raise IOError("PDF dosyası oluşturulamadı veya boş oluştu.")
             messagebox.showinfo(APP_NAME, "PDF raporu oluşturuldu:\n{}".format(output), parent=self)
         except Exception as exc:
             messagebox.showerror(APP_NAME, "PDF raporu oluşturulamadı:\n{}".format(exc), parent=self)
