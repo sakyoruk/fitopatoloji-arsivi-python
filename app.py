@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover
     import ttk
 
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "0.7.0"
+APP_VERSION = "0.7.1"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),
@@ -1157,16 +1157,37 @@ def self_test():
                     })
         db = Database(paths.database, seed)
         assert db.count() == 283, "Beklenen başlangıç kayıt sayısı 283, bulunan: {}".format(db.count())
-        new_id = db.add({"group_name": "TEST", "scientific_name": "Testus exemplum", "disease_name": "Test hastalığı"})
+        new_id = db.add({
+            "group_name": "TEST",
+            "scientific_name": "Testus exemplum",
+            "disease_name": "Test hastalığı",
+            "hosts": "Test konukçusu",
+            "affected_organs": "Test yaprağı",
+            "symptoms": "Test lekesi ve solgunluk",
+        })
         assert db.get(new_id)["scientific_name"] == "Testus exemplum"
-        db.update(new_id, {"group_name": "TEST", "scientific_name": "Testus exemplum", "disease_name": "Güncel test hastalığı"})
+
+        db.update(new_id, {
+            "group_name": "TEST",
+            "scientific_name": "Testus exemplum",
+            "disease_name": "Güncel test hastalığı",
+            "hosts": "Test konukçusu",
+            "affected_organs": "Test yaprağı",
+            "symptoms": "Test lekesi ve solgunluk",
+        })
         assert db.get(new_id)["disease_name"] == "Güncel test hastalığı"
+
+        # Arama ve teşhis testleri gerçek seed içeriğine bağlı olmamalı.
+        assert any(row["id"] == new_id for row in db.search("Testus exemplum"))
+        assert any(row["id"] == new_id for row in db.search(host="Test konukçusu"))
+        assert any(item[1]["id"] == new_id for item in db.diagnose(
+            host="Test konukçusu",
+            organ="Test yaprağı",
+            symptom="leke",
+        ))
+
         db.delete(new_id)
         assert db.get(new_id) is None
-        assert db.search("Etmen 1")
-        assert db.search(host="buğday") == [] or isinstance(db.search(host="buğday"), list)
-        diagnosis = db.diagnose(symptom="test")
-        assert isinstance(diagnosis, list)
         backup = os.path.join(root, "backup.db")
         db.backup_to(backup)
         assert os.path.exists(backup)
