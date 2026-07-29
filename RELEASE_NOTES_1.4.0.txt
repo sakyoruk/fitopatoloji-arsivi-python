@@ -1,0 +1,10 @@
+Fitopatoloji Arşivi 1.4.0
+
+- Ayırıcı tanı ve hastalık karşılaştırma penceresi eklendi.
+- 2 ile 4 hastalık kaydı yan yana karşılaştırılabilir.
+- Konukçu, organ ve belirti verilerine göre açıklanabilir benzerlik puanı eklendi.
+- Tek kayda benzeyen hastalıkları sıralama eklendi.
+- Karşılaştırma sonuçlarını PDF olarak dışa aktarma eklendi.
+- Sonuçların yalnızca kullanıcı tarafından arşive girilmiş verilere dayandığı açıkça belirtildi.
+
+Not: Bu modül otomatik tanı koymaz ve bilimsel/klinik değerlendirme yerine geçmez.

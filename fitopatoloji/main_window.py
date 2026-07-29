@@ -2,6 +2,7 @@
 from .common import *
 from .editor import DiseaseEditor
 from .gallery import PhotoGallery
+from .comparison import DiseaseComparison
 
 class MainWindow(tk.Tk):
     def __init__(self, paths, database):
@@ -61,6 +62,7 @@ class MainWindow(tk.Tk):
         ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=8)
         ttk.Button(toolbar, text="Gelişmiş filtre", command=self.open_advanced_filter).pack(side="left")
         ttk.Button(toolbar, text="Teşhis sihirbazı", command=self.open_diagnosis_wizard).pack(side="left", padx=4)
+        ttk.Button(toolbar, text="Karşılaştır", command=self.open_comparison).pack(side="left", padx=(0, 4))
         ttk.Button(toolbar, text="İstatistik", command=self.open_statistics).pack(side="left")
         ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=8)
         ttk.Button(toolbar, text="Favori ★", command=self.toggle_favorite).pack(side="left")
@@ -955,6 +957,10 @@ class MainWindow(tk.Tk):
             messagebox.showinfo(APP_NAME, "PDF raporu oluşturuldu:\n{}".format(output), parent=self)
         except Exception as exc:
             messagebox.showerror(APP_NAME, "PDF raporu oluşturulamadı:\n{}".format(exc), parent=self)
+
+
+    def open_comparison(self):
+        DiseaseComparison(self, self.db, self.selected_id)
 
     def open_gallery(self):
         if not self.selected_id:
