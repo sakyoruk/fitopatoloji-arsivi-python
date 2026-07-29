@@ -1,1 +1,12 @@
+name: Test workflow
 
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-2022
+
+    steps:
+      - name: Test
+        run: echo Workflow calisiyor
