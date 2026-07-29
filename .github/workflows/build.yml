@@ -7,6 +7,10 @@ jobs:
   build:
     runs-on: windows-2022
 
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+
     steps:
       - name: Kaynak dosyalari al
         uses: actions/checkout@v4
@@ -19,27 +23,26 @@ jobs:
 
       - name: PyInstaller kur
         run: python -m pip install "pyinstaller==6.7.0"
-        
+
       - name: Uygulamayi test et
-        env:
-          PYTHONIOENCODING: "utf-8"
         run: python app.py --self-test
 
       - name: EXE olustur
-        run: >
-          python -m PyInstaller
-          --noconfirm
-          --clean
-          --onedir
-          --windowed
-          --name FitopatolojiArsivi
-          --add-data "seed/diseases.csv;seed"
-          app.py
+        shell: powershell
+        run: |
+          python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --onedir `
+            --windowed `
+            --name FitopatolojiArsivi `
+            --add-data "seed/diseases.csv;seed" `
+            app.py
 
       - name: Kullanma dosyasini kopyala
         shell: powershell
         run: |
-          Copy-Item "KULLANIM.txt" "dist\FitopatolojiArsivi\KULLANIM.txt"
+          Copy-Item "KULLANIM.txt" "dist\FitopatolojiArsivi\KULLANIM.txt" -Force
 
       - name: Indirilebilir paket olustur
         uses: actions/upload-artifact@v4
