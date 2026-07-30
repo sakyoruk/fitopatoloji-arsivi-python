@@ -13,6 +13,7 @@ from .monograph import MonographBuilder
 from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
 from .maintenance import MaintenanceCenter, SettingsDialog, SettingsStore, HelpCenter
+from .diagnostics import IssueReportDialog
 from .rc_shell import RibbonBar, ContextPanel, AboutDialog
 
 class MainWindow(tk.Tk):
@@ -68,6 +69,9 @@ class MainWindow(tk.Tk):
 
     def open_about(self):
         AboutDialog(self)
+
+    def open_issue_report(self):
+        IssueReportDialog(self, self.db, self.paths)
 
     def open_dashboard(self):
         try:
@@ -135,6 +139,7 @@ class MainWindow(tk.Tk):
             ("maintenance", "Bakım ve tanılama merkezini aç", "Veritabanı sağlığı", self.open_maintenance),
             ("settings", "Ayarlar merkezini aç", "Uygulama tercihleri", self.open_settings),
             ("help", "Yardım merkezini aç", "Kullanım ve kısayollar", self.open_help),
+            ("issue", "Sorun bildir", "Gizlilik odaklı tanılama paketi", self.open_issue_report),
             ("about", "Fitopatoloji Arşivi hakkında", "Sürüm ve uygulama bilgisi", self.open_about),
         ]
         def fill(*_args):
@@ -208,6 +213,7 @@ class MainWindow(tk.Tk):
         ttk.Button(nav, text="⛁  Yedekleme", style="Nav.TButton", command=self.create_backup).pack(fill="x")
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
         ttk.Button(nav, text="⚙  Sistem bakımı", style="Nav.TButton", command=self.open_maintenance).pack(fill="x")
+        ttk.Button(nav, text="!  Sorun bildir", style="Nav.TButton", command=self.open_issue_report).pack(fill="x")
 
         content = ttk.Frame(shell)
         content.pack(side="left", fill="both", expand=True)
@@ -222,7 +228,7 @@ class MainWindow(tk.Tk):
             "add_photo": self.add_photo, "gallery": self.open_gallery, "knowledge": self.open_knowledge_center,
             "compare": self.open_comparison, "diagnose": self.open_diagnosis_wizard,
             "dashboard": self.open_dashboard, "workspace": self.open_workspace, "statistics": self.open_statistics,
-            "help": self.open_help, "settings": self.open_settings, "about": self.open_about,
+            "help": self.open_help, "settings": self.open_settings, "about": self.open_about, "issue": self.open_issue_report,
             "palette": self.open_command_palette,
         }
         self.ribbon = RibbonBar(content, ribbon_commands)

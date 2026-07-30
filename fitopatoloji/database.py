@@ -2,15 +2,43 @@
 from .common import *
 
 class Database(object):
+    SCHEMA_VERSION = 20002
+
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
         self.seed_csv = seed_csv
-        self.conn = sqlite3.connect(self.db_path)
+        self._create_pre_migration_backup()
+        self.conn = sqlite3.connect(self.db_path, timeout=30)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.execute("PRAGMA journal_mode = WAL")
+        self.conn.execute("PRAGMA busy_timeout = 30000")
         self.create_schema()
         self.seed_if_empty()
+
+
+    def _create_pre_migration_backup(self):
+        """Mevcut bir veritabanını RC2 şema yükseltmesinden önce bir kez yedekler."""
+        if not os.path.exists(self.db_path) or os.path.getsize(self.db_path) == 0:
+            return
+        try:
+            probe = sqlite3.connect(self.db_path)
+            current = int(probe.execute("PRAGMA user_version").fetchone()[0] or 0)
+            probe.close()
+            if current >= self.SCHEMA_VERSION:
+                return
+            backup_dir = os.path.abspath(os.path.join(os.path.dirname(self.db_path), os.pardir, "Backups"))
+            if not os.path.isdir(backup_dir):
+                os.makedirs(backup_dir)
+            stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+            target = os.path.join(backup_dir, "PreMigration_RC2_{}.db".format(stamp))
+            shutil.copy2(self.db_path, target)
+        except Exception:
+            # Yedekleme denemesi uygulamanın açılmasını engellememelidir.
+            pass
+
+    def schema_version(self):
+        return int(self.conn.execute("PRAGMA user_version").fetchone()[0] or 0)
 
     def close(self):
         try:
@@ -59,6 +87,8 @@ class Database(object):
 
             CREATE INDEX IF NOT EXISTS idx_diseases_group ON diseases(group_name);
             CREATE INDEX IF NOT EXISTS idx_diseases_scientific ON diseases(scientific_name);
+            CREATE INDEX IF NOT EXISTS idx_diseases_name ON diseases(disease_name);
+            CREATE INDEX IF NOT EXISTS idx_diseases_updated ON diseases(updated_at DESC);
             CREATE TABLE IF NOT EXISTS disease_references (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 disease_id INTEGER NOT NULL,
@@ -132,6 +162,8 @@ class Database(object):
             if column_name not in disease_columns:
                 self.conn.execute("ALTER TABLE diseases ADD COLUMN {} {}".format(column_name, definition))
 
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_diseases_deleted ON diseases(deleted_at)")
+
         columns = [row[1] for row in self.conn.execute("PRAGMA table_info(attachments)").fetchall()]
         for column_name, definition in [
             ("is_primary", "INTEGER NOT NULL DEFAULT 0"),
@@ -143,6 +175,8 @@ class Database(object):
             if column_name not in columns:
                 self.conn.execute("ALTER TABLE attachments ADD COLUMN {} {}".format(column_name, definition))
         self.conn.execute("UPDATE attachments SET sort_order = id WHERE sort_order = 0")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_attachments_type ON attachments(file_type, disease_id)")
+        self.conn.execute("PRAGMA user_version = {}".format(self.SCHEMA_VERSION))
         self.conn.commit()
 
     def seed_if_empty(self):

@@ -99,6 +99,7 @@ class MaintenanceCenter(tk.Toplevel):
             ("Eksik dosya bağlantısı", len(missing), "Dikkat" if missing else "Temiz"),
             ("Son yedek", latest_text, "Bilgi" if latest else "Dikkat"),
             ("SQLite journal modu", conn.execute("PRAGMA journal_mode").fetchone()[0].upper(), "Bilgi"),
+            ("Veritabanı şema sürümü", self.db.schema_version() if hasattr(self.db, "schema_version") else "—", "Bilgi"),
         ]
 
     def _missing_files(self):

@@ -1,0 +1,14 @@
+Fitopatoloji Arşivi 2.0.0 RC2
+
+- Gizlilik odaklı Sorun Bildir ve tanılama paketi
+- Veritabanı şema sürümleme (PRAGMA user_version)
+- Eski veritabanlarında yükseltme öncesi otomatik güvenlik kopyası
+- Yeni arama ve ek dosya indeksleri
+- SQLite busy timeout ile kilitlenme dayanıklılığı
+- Bakım Merkezinde şema sürümü görünümü
+- Genişletilmiş otomatik regresyon testleri
+- GitHub Actions test kapısı ve RC2 paket adı
+- Çevrimdışı kullanıcı kılavuzu
+- RC2 sürüm kimliği ve Hakkında ekranı güncellemeleri
+
+Not: Tanılama paketleri veritabanı, hastalık metinleri, fotoğraflar veya belgeler içermez.
