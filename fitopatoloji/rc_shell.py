@@ -132,7 +132,7 @@ class AboutDialog(tk.Toplevel):
         mark.create_arc(18, 19, 48, 55, start=280, extent=150, style="arc", outline="#ffffff", width=4)
         mark.create_arc(29, 15, 60, 52, start=110, extent=150, style="arc", outline="#ffffff", width=4)
         ttk.Label(frame, text=APP_NAME, style="AboutTitle.TLabel").pack(pady=(6, 2))
-        ttk.Label(frame, text="Sürüm {} — Release Candidate 3".format(APP_VERSION), style="Muted.TLabel").pack()
+        ttk.Label(frame, text="Sürüm {} — Release Candidate 6".format(APP_VERSION), style="Muted.TLabel").pack()
         ttk.Label(frame, text="Bitki hastalıkları için yerel, çevrimdışı ve araştırmacı odaklı bilimsel arşiv.", style="Surface.TLabel", wraplength=430, justify="center").pack(pady=(18, 8))
         ttk.Label(frame, text="Python • Tkinter • SQLite\nWindows 7 SP1 x64 uyumlu masaüstü yapı", style="Muted.TLabel", justify="center").pack()
         ttk.Separator(frame).pack(fill="x", pady=18)

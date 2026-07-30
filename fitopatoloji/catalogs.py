@@ -32,8 +32,8 @@ class TaxonomyCatalog(tk.Toplevel):
         ttk.Label(top, text="Taksonomi Kataloğu", font=("Segoe UI", 14, "bold")).pack(side="left")
         ttk.Button(top, text="Yeni takson", style="Primary.TButton", command=self.add_taxon).pack(side="right")
         body = ttk.Frame(self, padding=(12,0,12,12)); body.pack(fill="both", expand=True)
-        self.tree = ttk.Treeview(body, columns=("rank","name","parent","synonyms"), show="headings")
-        for key, text, width in [("rank","Basamak",130),("name","Ad",230),("parent","Üst takson",220),("synonyms","Eş adlar",260)]:
+        self.tree = ttk.Treeview(body, columns=("agent","rank","name","parent","synonyms","source"), show="headings")
+        for key, text, width in [("agent","Etmen grubu",130),("rank","Basamak",110),("name","Ad",180),("parent","Üst takson",160),("synonyms","Eş adlar",190),("source","Kaynak",170)]:
             self.tree.heading(key, text=text); self.tree.column(key, width=width, anchor="w")
         y = ttk.Scrollbar(body, orient="vertical", command=self.tree.yview); self.tree.configure(yscrollcommand=y.set)
         self.tree.pack(side="left", fill="both", expand=True); y.pack(side="right", fill="y")
@@ -45,22 +45,33 @@ class TaxonomyCatalog(tk.Toplevel):
     def refresh(self):
         self.tree.delete(*self.tree.get_children())
         for row in self.db.taxonomy_list():
-            self.tree.insert("","end",iid=str(row["id"]),values=(row["rank"],row["name"],row["parent_name"] or "",row["synonyms"] or ""))
+            self.tree.insert("","end",iid=str(row["id"]),values=(row["agent_group"] or "",row["rank"],row["name"],row["parent_name"] or "",row["synonyms"] or "",row["source"] or ""))
 
     def _dialog(self, row=None):
-        dlg=tk.Toplevel(self); dlg.title("Takson düzenle" if row else "Yeni takson"); dlg.transient(self); dlg.grab_set(); dlg.geometry("520x310")
+        dlg=tk.Toplevel(self); dlg.title("Takson düzenle" if row else "Yeni takson"); dlg.transient(self); dlg.grab_set(); dlg.geometry("620x500")
         frm=ttk.Frame(dlg,padding=14); frm.pack(fill="both",expand=True); frm.columnconfigure(1,weight=1)
-        rank=tk.StringVar(value=(row["rank"] if row else "Familya")); name=tk.StringVar(value=(row["name"] if row else "")); parent=tk.StringVar(value=(row["parent_name"] if row else "")); synonyms=tk.StringVar(value=(row["synonyms"] if row else ""))
+        values={
+            "agent_group": tk.StringVar(value=(row["agent_group"] if row else "")),
+            "rank": tk.StringVar(value=(row["rank"] if row else "Familya")),
+            "name": tk.StringVar(value=(row["name"] if row else "")),
+            "parent_name": tk.StringVar(value=(row["parent_name"] if row else "")),
+            "synonyms": tk.StringVar(value=(row["synonyms"] if row else "")),
+            "source": tk.StringVar(value=(row["source"] if row else "")),
+            "accessed_at": tk.StringVar(value=(row["accessed_at"] if row else "")),
+            "notes": tk.StringVar(value=(row["notes"] if row else "")),
+        }
+        rows=[("Etmen grubu","agent_group","agent"),("Basamak","rank","rank"),("Ad","name","entry"),("Üst takson","parent_name","entry"),("Eş adlar","synonyms","entry"),("Kaynak","source","entry"),("Erişim tarihi","accessed_at","entry"),("Notlar","notes","entry")]
         ranks=[label for _,label in TAXON_RANKS]
-        for i,(label,var,widget) in enumerate([
-            ("Basamak",rank,"combo"),("Ad",name,"entry"),("Üst takson",parent,"entry"),("Eş adlar",synonyms,"entry")]):
+        for i,(label,key,kind) in enumerate(rows):
             ttk.Label(frm,text=label).grid(row=i,column=0,sticky="w",pady=6,padx=(0,10))
-            w=ttk.Combobox(frm,textvariable=var,values=ranks,state="readonly") if widget=="combo" else ttk.Entry(frm,textvariable=var)
+            if kind=="agent": w=ttk.Combobox(frm,textvariable=values[key],values=AGENT_GROUPS,state="normal")
+            elif kind=="rank": w=ttk.Combobox(frm,textvariable=values[key],values=ranks,state="readonly")
+            else: w=ttk.Entry(frm,textvariable=values[key])
             w.grid(row=i,column=1,sticky="ew",pady=6)
         def save():
-            if not name.get().strip(): messagebox.showwarning(APP_NAME,"Takson adı boş olamaz.",parent=dlg); return
-            self.db.taxonomy_save(row["id"] if row else None,rank.get(),name.get(),parent.get(),synonyms.get()); dlg.destroy(); self.refresh()
-        ttk.Button(frm,text="Kaydet",style="Primary.TButton",command=save).grid(row=5,column=1,sticky="e",pady=(18,0))
+            if not values["name"].get().strip(): messagebox.showwarning(APP_NAME,"Takson adı boş olamaz.",parent=dlg); return
+            self.db.taxonomy_save(row["id"] if row else None, values["rank"].get(), values["name"].get(), values["parent_name"].get(), values["synonyms"].get(), values["notes"].get(), values["agent_group"].get(), values["source"].get(), values["accessed_at"].get()); dlg.destroy(); self.refresh()
+        ttk.Button(frm,text="Kaydet",style="Primary.TButton",command=save).grid(row=len(rows),column=1,sticky="e",pady=(18,0))
     def add_taxon(self): self._dialog()
     def edit_taxon(self):
         sel=self.tree.selection();
@@ -99,9 +110,9 @@ class HostCatalog(tk.Toplevel):
             iid=str(r["id"]); self.tree.insert("","end",iid=iid,values=(r["common_name"],r["scientific_name"],r["family_name"],r["genus_name"],r["taxon_level"]))
             if int(r["id"]) in self.preselected_ids: self.tree.selection_add(iid)
     def _dialog(self,row=None):
-        dlg=tk.Toplevel(self); dlg.title("Konukçu düzenle" if row else "Yeni konukçu"); dlg.transient(self); dlg.grab_set(); dlg.geometry("560x470")
+        dlg=tk.Toplevel(self); dlg.title("Konukçu düzenle" if row else "Yeni konukçu"); dlg.transient(self); dlg.grab_set(); dlg.geometry("620x650")
         frm=ttk.Frame(dlg,padding=14); frm.pack(fill="both",expand=True); frm.columnconfigure(1,weight=1)
-        fields=[("common_name","Türkçe ad"),("scientific_name","Bilimsel ad"),("family_name","Familya"),("genus_name","Cins"),("species_name","Tür epiteti"),("alternative_names","Alternatif adlar"),("notes","Notlar")]
+        fields=[("common_name","Türkçe ad"),("scientific_name","Bilimsel ad"),("family_name","Familya"),("genus_name","Cins"),("species_name","Tür epiteti"),("subspecies_name","Alt tür"),("variety_name","Varyete"),("cultivar_name","Kültivar"),("host_group","Konukçu grubu"),("alternative_names","Alternatif adlar"),("notes","Notlar")]
         vars={k:tk.StringVar(value=(row[k] if row else "")) for k,_ in fields}; level=tk.StringVar(value=(row["taxon_level"] if row else "Tür"))
         ttk.Label(frm,text="Düzey").grid(row=0,column=0,sticky="w",pady=5); ttk.Combobox(frm,textvariable=level,values=["Familya","Cins","Tür","Çeşit","Grup"],state="readonly").grid(row=0,column=1,sticky="ew",pady=5)
         for i,(k,label) in enumerate(fields,1): ttk.Label(frm,text=label).grid(row=i,column=0,sticky="w",pady=5,padx=(0,10)); ttk.Entry(frm,textvariable=vars[k]).grid(row=i,column=1,sticky="ew",pady=5)

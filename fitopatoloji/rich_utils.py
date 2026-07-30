@@ -46,6 +46,7 @@ def apply_to_text_widget(widget, text, formatting, base_index='1.0', font_size=9
     widget.tag_configure('rt_italic', font=('Segoe UI', font_size, 'italic'))
     widget.tag_configure('rt_bold_italic', font=('Segoe UI', font_size, 'bold italic'))
     widget.tag_configure('rt_underline', underline=True)
+    widget.tag_configure('rt_strikethrough', overstrike=True)
     widget.tag_configure('rt_superscript', offset=4, font=('Segoe UI', max(6, font_size-2)))
     widget.tag_configure('rt_subscript', offset=-3, font=('Segoe UI', max(6, font_size-2)))
     widget.tag_configure('rt_align_left', justify='left')
@@ -80,6 +81,8 @@ def apply_to_text_widget(widget, text, formatting, base_index='1.0', font_size=9
             widget.tag_add('rt_italic', start, end)
         if 'underline' in names:
             widget.tag_add('rt_underline', start, end)
+        if 'strikethrough' in names:
+            widget.tag_add('rt_strikethrough', start, end)
         if 'superscript' in names:
             widget.tag_add('rt_superscript', start, end)
         if 'subscript' in names:
@@ -122,6 +125,10 @@ def to_html(text, formatting):
         color = next((c or ('#' + n.split('_', 1)[1]) for n, c in active if n.startswith('color_')), None)
         highlight = next((c or ('#' + n.split('_', 1)[1]) for n, c in active if n.startswith('highlight_')), None)
         styles = []
+        family = next((n.split('_',1)[1].replace('~',' ') for n,c in active if n.startswith('fontfamily_')), None)
+        size = next((n.split('_',1)[1] for n,c in active if n.startswith('fontsize_')), None)
+        if family: styles.append('font-family:'+html.escape(family, quote=True))
+        if size and str(size).isdigit(): styles.append('font-size:'+str(size)+'pt')
         if color: styles.append('color:'+html.escape(color, quote=True))
         if highlight: styles.append('background-color:'+html.escape(highlight, quote=True))
         if 'superscript' in names: styles.append('vertical-align:super;font-size:75%')
@@ -129,8 +136,10 @@ def to_html(text, formatting):
         if styles: value = "<span style='{}'>".format(';'.join(styles)) + value + '</span>'
         if 'underline' in names:
             value = '<u>' + value + '</u>'
+        if 'strikethrough' in names:
+            value = '<s>' + value + '</s>'
         if 'superscript' in names:
-            value = '<super>' + value + '</super>'
+            value = '<sup>' + value + '</sup>'
         if 'subscript' in names:
             value = '<sub>' + value + '</sub>'
         if 'italic' in names:
@@ -150,12 +159,19 @@ def to_reportlab(text, formatting):
         names = {name for name, _color in active}
         color = next((c or ('#' + n.split('_', 1)[1]) for n, c in active if n.startswith('color_')), None)
         highlight = next((c or ('#' + n.split('_', 1)[1]) for n, c in active if n.startswith('highlight_')), None)
-        if color and re.match(r'^#[0-9A-Fa-f]{6}$', color):
-            value = '<font color="{}">'.format(color) + value + '</font>'
+        family = next((n.split('_',1)[1].replace('~',' ') for n,c in active if n.startswith('fontfamily_')), None)
+        size = next((n.split('_',1)[1] for n,c in active if n.startswith('fontsize_')), None)
+        attrs=[]
+        if color and re.match(r'^#[0-9A-Fa-f]{6}$', color): attrs.append('color="{}"'.format(color))
+        if size and str(size).isdigit(): attrs.append('size="{}"'.format(size))
+        if family: attrs.append('name="{}"'.format(family.replace('"','')))
+        if attrs: value = '<font {}>'.format(' '.join(attrs)) + value + '</font>'
         if 'underline' in names:
             value = '<u>' + value + '</u>'
+        if 'strikethrough' in names:
+            value = '<strike>' + value + '</strike>'
         if 'superscript' in names:
-            value = '<super>' + value + '</super>'
+            value = '<sup>' + value + '</sup>'
         if 'subscript' in names:
             value = '<sub>' + value + '</sub>'
         if 'italic' in names:

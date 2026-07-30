@@ -2,7 +2,7 @@
 from .common import *
 
 class Database(object):
-    SCHEMA_VERSION = 20003
+    SCHEMA_VERSION = 20006
 
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
@@ -106,6 +106,7 @@ class Database(object):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 rank TEXT NOT NULL, name TEXT NOT NULL, parent_name TEXT NOT NULL DEFAULT '',
                 synonyms TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                agent_group TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '', accessed_at TEXT NOT NULL DEFAULT '',
                 UNIQUE(rank, name)
             );
             CREATE INDEX IF NOT EXISTS idx_taxonomy_rank_name ON taxonomy_catalog(rank, name COLLATE NOCASE);
@@ -115,8 +116,9 @@ class Database(object):
                 taxon_level TEXT NOT NULL DEFAULT 'Tür',
                 common_name TEXT NOT NULL DEFAULT '', scientific_name TEXT NOT NULL DEFAULT '',
                 family_name TEXT NOT NULL DEFAULT '', genus_name TEXT NOT NULL DEFAULT '',
-                species_name TEXT NOT NULL DEFAULT '', alternative_names TEXT NOT NULL DEFAULT '',
-                notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+                species_name TEXT NOT NULL DEFAULT '', subspecies_name TEXT NOT NULL DEFAULT '',
+                variety_name TEXT NOT NULL DEFAULT '', cultivar_name TEXT NOT NULL DEFAULT '', host_group TEXT NOT NULL DEFAULT '',
+                alternative_names TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
             );
             CREATE UNIQUE INDEX IF NOT EXISTS idx_host_scientific_unique ON host_catalog(scientific_name COLLATE NOCASE) WHERE TRIM(scientific_name)<>'';
             CREATE INDEX IF NOT EXISTS idx_host_common ON host_catalog(common_name COLLATE NOCASE);
@@ -225,6 +227,18 @@ class Database(object):
                 self.conn.execute("ALTER TABLE attachments ADD COLUMN {} {}".format(column_name, definition))
         self.conn.execute("UPDATE attachments SET sort_order = id WHERE sort_order = 0")
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_attachments_type ON attachments(file_type, disease_id)")
+
+        taxonomy_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(taxonomy_catalog)").fetchall()]
+        for column_name in ("agent_group", "source", "accessed_at"):
+            if column_name not in taxonomy_columns:
+                self.conn.execute("ALTER TABLE taxonomy_catalog ADD COLUMN {} TEXT NOT NULL DEFAULT ''".format(column_name))
+        host_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(host_catalog)").fetchall()]
+        for column_name in ("subspecies_name", "variety_name", "cultivar_name", "host_group"):
+            if column_name not in host_columns:
+                self.conn.execute("ALTER TABLE host_catalog ADD COLUMN {} TEXT NOT NULL DEFAULT ''".format(column_name))
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_host_genus ON host_catalog(genus_name COLLATE NOCASE)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_host_group ON host_catalog(host_group COLLATE NOCASE)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_taxonomy_agent ON taxonomy_catalog(agent_group COLLATE NOCASE)")
         self.conn.execute("PRAGMA user_version = {}".format(self.SCHEMA_VERSION))
         self.conn.commit()
 
@@ -307,17 +321,28 @@ class Database(object):
         )
         return self.conn.execute(sql, params).fetchall()
 
-    def taxonomy_list(self):
-        return self.conn.execute("SELECT * FROM taxonomy_catalog ORDER BY rank COLLATE NOCASE, name COLLATE NOCASE").fetchall()
+    def taxonomy_list(self, rank="", agent_group="", query=""):
+        clauses=[]; params=[]
+        if rank:
+            clauses.append("rank=?"); params.append(rank)
+        if agent_group:
+            clauses.append("agent_group=?"); params.append(agent_group)
+        if query:
+            like="%"+query.strip()+"%"
+            clauses.append("(name LIKE ? OR parent_name LIKE ? OR synonyms LIKE ? OR notes LIKE ?)")
+            params.extend([like]*4)
+        where=(" WHERE "+" AND ".join(clauses)) if clauses else ""
+        return self.conn.execute("SELECT * FROM taxonomy_catalog"+where+" ORDER BY rank COLLATE NOCASE, name COLLATE NOCASE",params).fetchall()
 
     def taxonomy_get(self, taxon_id):
         return self.conn.execute("SELECT * FROM taxonomy_catalog WHERE id=?", (taxon_id,)).fetchone()
 
-    def taxonomy_save(self, taxon_id, rank, name, parent_name="", synonyms=""):
+    def taxonomy_save(self, taxon_id, rank, name, parent_name="", synonyms="", notes="", agent_group="", source="", accessed_at=""):
+        values=(rank.strip(),name.strip(),parent_name.strip(),synonyms.strip(),notes.strip(),agent_group.strip(),source.strip(),accessed_at.strip())
         if taxon_id:
-            self.conn.execute("UPDATE taxonomy_catalog SET rank=?, name=?, parent_name=?, synonyms=? WHERE id=?", (rank.strip(),name.strip(),parent_name.strip(),synonyms.strip(),taxon_id))
+            self.conn.execute("UPDATE taxonomy_catalog SET rank=?, name=?, parent_name=?, synonyms=?, notes=?, agent_group=?, source=?, accessed_at=? WHERE id=?", values+(taxon_id,))
         else:
-            self.conn.execute("INSERT INTO taxonomy_catalog(rank,name,parent_name,synonyms) VALUES(?,?,?,?)", (rank.strip(),name.strip(),parent_name.strip(),synonyms.strip()))
+            self.conn.execute("INSERT INTO taxonomy_catalog(rank,name,parent_name,synonyms,notes,agent_group,source,accessed_at) VALUES(?,?,?,?,?,?,?,?)", values)
         self.conn.commit()
 
     def taxonomy_delete(self, taxon_id):
@@ -327,7 +352,7 @@ class Database(object):
         q=(query or "").strip()
         if q:
             like="%"+q+"%"
-            return self.conn.execute("SELECT * FROM host_catalog WHERE common_name LIKE ? OR scientific_name LIKE ? OR family_name LIKE ? OR genus_name LIKE ? OR alternative_names LIKE ? ORDER BY scientific_name COLLATE NOCASE, common_name COLLATE NOCASE", (like,like,like,like,like)).fetchall()
+            return self.conn.execute("SELECT * FROM host_catalog WHERE common_name LIKE ? OR scientific_name LIKE ? OR family_name LIKE ? OR genus_name LIKE ? OR alternative_names LIKE ? OR host_group LIKE ? ORDER BY scientific_name COLLATE NOCASE, common_name COLLATE NOCASE", (like,like,like,like,like,like)).fetchall()
         return self.conn.execute("SELECT * FROM host_catalog ORDER BY scientific_name COLLATE NOCASE, common_name COLLATE NOCASE").fetchall()
 
     def host_get(self, host_id):
@@ -335,7 +360,7 @@ class Database(object):
 
     def host_save(self, host_id, data):
         now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        fields=("taxon_level","common_name","scientific_name","family_name","genus_name","species_name","alternative_names","notes")
+        fields=("taxon_level","common_name","scientific_name","family_name","genus_name","species_name","subspecies_name","variety_name","cultivar_name","host_group","alternative_names","notes")
         vals=[data.get(k,"") for k in fields]
         if host_id:
             self.conn.execute("UPDATE host_catalog SET "+", ".join(k+"=?" for k in fields)+", updated_at=? WHERE id=?", vals+[now,host_id])
@@ -352,6 +377,14 @@ class Database(object):
 
     def disease_host_remove(self, disease_id, host_id):
         self.conn.execute("DELETE FROM disease_hosts WHERE disease_id=? AND host_id=?", (disease_id,host_id)); self.conn.commit()
+
+    def replace_disease_hosts(self, disease_id, relations):
+        self.conn.execute("DELETE FROM disease_hosts WHERE disease_id=?", (disease_id,))
+        for relation in relations or []:
+            self.conn.execute("INSERT OR REPLACE INTO disease_hosts(disease_id,host_id,relation_type,scope_type,relation_note,is_excluded) VALUES(?,?,?,?,?,?)",
+                (disease_id, int(relation.get("host_id")), relation.get("relation_type", "Doğal konukçu"),
+                 relation.get("scope_type", "Doğrudan"), relation.get("relation_note", ""), int(bool(relation.get("is_excluded", 0)))))
+        self.conn.commit()
 
     def disease_hosts(self, disease_id):
         return self.conn.execute("SELECT hc.*, dh.relation_type, dh.scope_type, dh.relation_note, dh.is_excluded FROM disease_hosts dh JOIN host_catalog hc ON hc.id=dh.host_id WHERE dh.disease_id=? ORDER BY dh.is_excluded, hc.scientific_name COLLATE NOCASE, hc.common_name COLLATE NOCASE", (disease_id,)).fetchall()

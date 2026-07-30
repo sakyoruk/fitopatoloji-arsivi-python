@@ -1,0 +1,27 @@
+Fitopatoloji Arşivi 2.0.0 RC6
+
+Bu birleşik aday sürüm RC4, RC5 ve RC6 kapsamlarını tek pakette toplar.
+
+RC4 — Taksonomi
+- Etmen grupları ve genişletilmiş taksonomi basamakları
+- Taksonomi kataloğunda etmen grubu, üst takson, eş ad, kaynak, erişim tarihi ve not alanları
+- Hastalık kaydında patovar, forma specialis, strain/ırk ve izolat desteği
+
+RC5 — Konukçu ve arama
+- Genişletilmiş Konukçu Kataloğu: familya, cins, tür, alt tür, varyete, kültivar ve grup
+- Hastalık başına çoklu konukçu ilişkileri
+- Her ilişki için doğal/alternatif/deneysel/ara/rezervuar/belirsiz türü
+- Familya, cins, tür ve kültivar düzeyinde kapsam
+- Dahil veya hariç tutulan konukçu kaydı
+- Yapılandırılmış konukçu araması
+
+RC6 — Profesyonel Rich Text
+- Kalın ve italik biçimlerin aynı anda görünmesi ve saklanması
+- Altı çizili, üstü çizili, üst simge ve alt simge
+- Yazı tipi ve boyutu
+- Metin rengi ve vurgu
+- Madde, numara, girinti ve hizalama
+- Geri al/yinele ve bilimsel ad biçimi
+- HTML ve PDF çıktılarında birleşik biçimlerin korunması
+
+Not: Tk metin bileşeni gerçek iki yana yaslamayı desteklemediği için "İki yana" komutu güvenli biçimde sola hizalama olarak uygulanır.

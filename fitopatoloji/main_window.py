@@ -558,9 +558,10 @@ class MainWindow(tk.Tk):
 
     def _save_new(self, data):
         rich_data = data.pop("_rich_text", {}); tags=[x.strip() for x in data.pop("_tags", "").replace(";", ",").split(",") if x.strip()]
-        host_ids = data.pop("_host_ids", [])
+        data.pop("_host_ids", None)
+        host_relations = data.pop("_host_relations", [])
         new_id = self.db.add(data)
-        for host_id in host_ids: self.db.disease_host_add(new_id, int(host_id))
+        self.db.replace_disease_hosts(new_id, host_relations)
         self.db.save_rich_text(new_id, rich_data); self.db.save_tags(new_id, tags)
         self.refresh_groups()
         self.refresh_list(select_id=new_id)
@@ -589,7 +590,9 @@ class MainWindow(tk.Tk):
             messagebox.showinfo(APP_NAME, "Önce bir kayıt seçin.", parent=self)
             return
         record = dict(self.db.get(self.selected_id)); record["_tags"] = ", ".join(self.db.tags(self.selected_id))
-        record["_host_ids"] = [int(r["id"]) for r in self.db.disease_hosts(self.selected_id)]
+        host_rows = self.db.disease_hosts(self.selected_id)
+        record["_host_ids"] = [int(r["id"]) for r in host_rows]
+        record["_host_relations"] = [{"host_id":int(r["id"]),"relation_type":r["relation_type"],"scope_type":r["scope_type"],"relation_note":r["relation_note"],"is_excluded":int(r["is_excluded"])} for r in host_rows]
         record["hosts"] = self.db.disease_hosts_text(self.selected_id) or record.get("hosts", "")
         groups = self.db.list_groups(); key="edit:{}".format(self.selected_id)
         rich=self.db.rich_text(self.selected_id); draft=self.db.get_draft(key)
@@ -598,13 +601,10 @@ class MainWindow(tk.Tk):
 
     def _save_edit(self, data):
         rich_data = data.pop("_rich_text", {}); tags=[x.strip() for x in data.pop("_tags", "").replace(";", ",").split(",") if x.strip()]
-        host_ids = [int(x) for x in data.pop("_host_ids", [])]
+        data.pop("_host_ids", None)
+        host_relations = data.pop("_host_relations", [])
         self.db.update(self.selected_id, data)
-        current_ids = [int(r["id"]) for r in self.db.disease_hosts(self.selected_id)]
-        for host_id in current_ids:
-            if host_id not in host_ids: self.db.disease_host_remove(self.selected_id, host_id)
-        for host_id in host_ids:
-            if host_id not in current_ids: self.db.disease_host_add(self.selected_id, host_id)
+        self.db.replace_disease_hosts(self.selected_id, host_relations)
         self.db.save_rich_text(self.selected_id, rich_data); self.db.save_tags(self.selected_id, tags)
         self.refresh_groups()
         self.refresh_list(select_id=self.selected_id)
