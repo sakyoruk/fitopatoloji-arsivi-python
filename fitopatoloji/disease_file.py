@@ -56,7 +56,11 @@ class DiseaseFile(tk.Toplevel):
         canvas.bind("<Configure>", lambda e: canvas.itemconfigure(self.card_window, width=e.width))
         canvas.configure(yscrollcommand=scroll.set)
         canvas.pack(side="left", fill="both", expand=True); scroll.pack(side="right", fill="y")
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+        self.card_canvas = canvas
+        # Mouse wheel binding belongs to this window, not to the whole application.
+        # bind_all left a callback behind after the DiseaseFile window was closed,
+        # causing TclError when it tried to scroll a destroyed canvas.
+        self.bind("<MouseWheel>", self._on_mousewheel, add="+")
 
         ttk.Label(side, text="DOSYA ÖZETİ", style="Section.TLabel").pack(anchor="w")
         self.summary = tk.Text(side, height=9, wrap="word", relief="flat", padx=8, pady=8, cursor="arrow")
@@ -75,6 +79,31 @@ class DiseaseFile(tk.Toplevel):
         self.strip_canvas.create_window((0,0), window=self.strip, anchor="nw")
         self.strip_canvas.configure(xscrollcommand=xscroll.set)
         self.strip_canvas.pack(fill="x"); xscroll.pack(fill="x")
+
+
+    def _on_mousewheel(self, event):
+        """Scroll the card canvas only while the pointer is over it.
+
+        The existence checks are intentionally defensive for delayed Tk events
+        during window destruction on older Windows/Tk builds.
+        """
+        canvas = getattr(self, "card_canvas", None)
+        if canvas is None:
+            return
+        try:
+            if not self.winfo_exists() or not canvas.winfo_exists():
+                return
+            x, y = self.winfo_pointerxy()
+            left, top = canvas.winfo_rootx(), canvas.winfo_rooty()
+            right = left + canvas.winfo_width()
+            bottom = top + canvas.winfo_height()
+            if left <= x < right and top <= y < bottom:
+                delta = int(-1 * (event.delta / 120)) if event.delta else 0
+                if delta:
+                    canvas.yview_scroll(delta, "units")
+                    return "break"
+        except (tk.TclError, AttributeError):
+            return
 
     def _completion(self):
         fields = ["scientific_name","disease_name","hosts","affected_organs","symptoms","pathogen_features","epidemiology","differential_diagnosis","cultural_control","sources"]
