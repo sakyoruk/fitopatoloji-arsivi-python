@@ -203,7 +203,7 @@ class QuestionEditor(tk.Toplevel):
     """Her soru türünü ayrı sekmede düzenler; tür değiştirmek veriyi dönüştürmez."""
     def __init__(self, master, db, question_id=None, disease_id=None, on_saved=None, initial_type=None):
         tk.Toplevel.__init__(self, master); self.db=db; self.question_id=question_id; self.on_saved=on_saved
-        self.title("Soru düzenleyici"); self.geometry("1020x700"); self.minsize(840,610); self.transient(master); self.grab_set(); center_window(self,1020,700)
+        self.title("Soru düzenleyici"); self.geometry("1040x760"); self.minsize(900,650); self.transient(master); self.grab_set(); center_window(self,1040,760)
         self.row=db.quiz_question_get(question_id) if question_id else None
         self.selected_disease_ids=db.quiz_question_disease_ids(question_id) if question_id else ([int(disease_id)] if disease_id else [])
         self.current_type=(self.row["question_type"] if self.row else (initial_type or QUESTION_TYPES[0]))
@@ -214,7 +214,7 @@ class QuestionEditor(tk.Toplevel):
         self.image_copyright = tk.StringVar(value=(self.row["image_copyright"] if self.row and "image_copyright" in self.row.keys() else ""))
         footer=ttk.Frame(self,padding=(12,6)); footer.pack(fill="x",side="bottom")
         ttk.Button(footer,text="İptal",command=self.destroy).pack(side="right"); ttk.Button(footer,text="Kaydet",style="Primary.TButton",command=self.save).pack(side="right",padx=6)
-        body=ttk.Frame(self,padding=(10,7)); body.pack(fill="both",expand=True)
+        body=ttk.Frame(self,padding=(10,5)); body.pack(fill="both",expand=True)
         common=ttk.Frame(body); common.pack(fill="x")
         self.difficulty=tk.StringVar(value=(self.row["difficulty"] if self.row else "Orta")); self.topic=tk.StringVar(value=(self.row["topic_tag"] if self.row else "")); self.source=tk.StringVar(value=(self.row["source_text"] if self.row else ""))
         for col,(label,var,values) in enumerate((("Zorluk",self.difficulty,DIFFICULTIES),("Konu etiketleri",self.topic,self.db.quiz_topic_tags()),("Kaynak / dayanak",self.source,()))):
@@ -222,11 +222,11 @@ class QuestionEditor(tk.Toplevel):
             if values:ttk.Combobox(box,textvariable=var,values=values).pack(fill="x")
             else:ttk.Entry(box,textvariable=var).pack(fill="x")
             common.columnconfigure(col,weight=1)
-        rel=ttk.LabelFrame(body,text="İlişkili hastalıklar",padding=5); rel.pack(fill="x",pady=(5,4))
+        rel=ttk.LabelFrame(body,text="İlişkili hastalıklar",padding=4); rel.pack(fill="x",pady=(3,2))
         self.disease_summary=tk.StringVar(); ttk.Label(rel,textvariable=self.disease_summary,wraplength=720).pack(side="left",fill="x",expand=True)
         ttk.Button(rel,text="Ara ve seç…",command=lambda:DiseasePicker(self,self.db,self.selected_disease_ids,self.set_diseases)).pack(side="right")
         ttk.Label(body,text="Konu etiketi test filtrelerinde; kaynak alanı bilimsel dayanağı gösterir.",style="Muted.TLabel").pack(anchor="w",pady=(0,3))
-        image_box=ttk.LabelFrame(body,text="Soru görseli (isteğe bağlı)",padding=5); image_box.pack(fill="x",pady=(1,4))
+        image_box=ttk.LabelFrame(body,text="Soru görseli (isteğe bağlı)",padding=4); image_box.pack(fill="x",pady=(1,2))
         self.image_status=tk.StringVar(); ttk.Label(image_box,textvariable=self.image_status,wraplength=480).pack(side="left",fill="x",expand=True)
         ttk.Button(image_box,text="Görsel seç…",command=self.choose_image).pack(side="left",padx=2)
         ttk.Button(image_box,text="Bilgiler…",command=self.edit_image_metadata).pack(side="left",padx=2)
@@ -275,16 +275,16 @@ class QuestionEditor(tk.Toplevel):
     def _val(self,key): return self.row[key] if self.row and key in self.row.keys() else ""
     def _build_type_tab(self,typ,frame):
         active=(self.current_type==typ)
-        q=MiniRichText(frame,self._val("question_text") if active else "",self._fmt("question_format_json") if active else {},height=3)
+        q=MiniRichText(frame,self._val("question_text") if active else "",self._fmt("question_format_json") if active else {},height=2)
         ttk.Label(frame,text="Soru kökü").pack(anchor="w");q.pack(fill="x",pady=(1,4)); self.editors[(typ,"question")]=q
         if typ=="Çoktan seçmeli":
             opts=[]
-            option_area=ttk.LabelFrame(frame,text="Seçenekler (A–E)",padding=5);option_area.pack(fill="both",expand=True)
+            option_area=ttk.LabelFrame(frame,text="Seçenekler (A–E)",padding=4);option_area.pack(fill="x",expand=False)
             option_area.columnconfigure(0,weight=1); option_area.columnconfigure(1,weight=1)
             for i,(key,fkey) in enumerate(zip(OPTION_KEYS,FORMAT_KEYS)):
                 row=i//2; col=i%2
                 cell=ttk.Frame(option_area); cell.grid(row=row,column=col,sticky="nsew",padx=(0 if col==0 else 5,5 if col==0 else 0),pady=1)
-                ttk.Label(cell,text=chr(65+i)+")",width=3).pack(side="left",anchor="n",pady=23)
+                ttk.Label(cell,text=chr(65+i)+")",width=3).pack(side="left",anchor="n",pady=20)
                 ed=MiniRichText(cell,self._val(key) if active else "",self._fmt(fkey) if active else {},height=1)
                 ed.pack(side="left",fill="both",expand=True);opts.append(ed)
             # E seçeneği son satırın solunda kalır; doğru cevap seçimi sağda görünür.
@@ -303,7 +303,7 @@ class QuestionEditor(tk.Toplevel):
             ed=MiniRichText(frame,self._val("correct_answer") if active else "",self._fmt("correct_answer_format_json") if active else {},height=2);ed.pack(fill="x",pady=(2,6));self.editors[(typ,"answer")]=ed
             ttk.Label(frame,text="Birden fazla kabul edilen cevap için | işareti kullanın: mildiyö | geç yanıklık",style="Muted.TLabel").pack(anchor="w")
         ttk.Label(frame,text="Doğru cevabın açıklaması").pack(anchor="w",pady=(7,0))
-        exp=MiniRichText(frame,self._val("explanation") if active else "",self._fmt("explanation_format_json") if active else {},height=2);exp.pack(fill="x",pady=(2,0));self.editors[(typ,"explanation")]=exp
+        exp=MiniRichText(frame,self._val("explanation") if active else "",self._fmt("explanation_format_json") if active else {},height=3);exp.pack(fill="both",expand=True,pady=(2,0));self.editors[(typ,"explanation")]=exp
     def _tab_changed(self,event=None):
         self.current_type=QUESTION_TYPES[self.tabs.index(self.tabs.select())]
     def set_diseases(self,ids):
@@ -341,10 +341,10 @@ class ExamWindow(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW",self.request_finish)
         root=ttk.Frame(self,padding=14);root.pack(fill="both",expand=True)
         top=ttk.Frame(root);top.pack(fill="x");self.progress=tk.StringVar();ttk.Label(top,textvariable=self.progress,font=("Segoe UI",11,"bold")).pack(side="left");ttk.Button(top,text="Testi Sonlandır",command=self.request_finish).pack(side="right")
-        self.q_text=tk.Text(root,height=5,wrap="word",relief="flat",font=("Segoe UI",13));self.q_text.pack(fill="x",pady=(12,6))
         self.image_frame=ttk.Frame(root); self.image_label=ttk.Label(self.image_frame,anchor="center",cursor="hand2"); self.image_label.pack()
         self.image_caption_label=ttk.Label(self.image_frame,style="Muted.TLabel",wraplength=760,anchor="center"); self.image_caption_label.pack(fill="x",pady=(3,0))
         self.exam_image_ref=None; self.exam_image_path=""; self.image_label.bind("<Button-1>",lambda e:self.open_image_preview())
+        self.q_text=tk.Text(root,height=5,wrap="word",relief="flat",font=("Segoe UI",13));self.q_text.pack(fill="x",pady=(8,6))
         self.answer_box=ttk.LabelFrame(root,text="Cevabınız",padding=10);self.answer_box.pack(fill="both",expand=True)
         self.answer_var=tk.StringVar()
         self.feedback=tk.Text(root,height=6,wrap="word",state="disabled",font=("Segoe UI",10));self.feedback.pack(fill="x",pady=(8,0))
@@ -361,7 +361,7 @@ class ExamWindow(tk.Toplevel):
         self.exam_image_ref=_load_preview(self.exam_image_path,(640,230))
         if self.exam_image_ref:
             self.image_label.configure(image=self.exam_image_ref); self.image_caption_label.configure(text=(q["image_caption"] or "") if "image_caption" in q.keys() else "")
-            self.image_frame.pack(fill="x",pady=(0,6),before=self.answer_box)
+            self.image_frame.pack(fill="x",pady=(8,4),before=self.q_text)
         else:
             self.image_frame.pack_forget()
         self.answer_var.set(self.answers.get(qid,""));typ=q["question_type"]
@@ -432,13 +432,14 @@ def _add_index(base,relative):
 class ResultWindow(tk.Toplevel):
     def __init__(self,master,db,session_id,total,correct,wrong,blank,score,wrong_rows,on_open_disease):
         tk.Toplevel.__init__(self,master);self.db=db;self.on_open_disease=on_open_disease;self.title("Sınav sonucu");self.geometry("700x530");self.transient(master);center_window(self,700,530)
-        f=ttk.Frame(self,padding=18);f.pack(fill="both",expand=True);ttk.Label(f,text="Başarı: %{}".format(score),font=("Segoe UI",22,"bold")).pack(anchor="w");ttk.Label(f,text="{} soru • {} doğru • {} yanlış • {} boş".format(total,correct,wrong,blank)).pack(anchor="w",pady=(4,14))
-        tree=ttk.Treeview(f,columns=("topic","disease"),show="tree headings",height=12);tree.heading("#0",text="Yanlış yapılan soru");tree.heading("topic",text="Konu");tree.heading("disease",text="Hastalık");tree.column("#0",width=340);tree.column("topic",width=110);tree.column("disease",width=160);tree.pack(fill="both",expand=True)
+        footer=ttk.Frame(self,padding=(18,8));footer.pack(fill="x",side="bottom")
+        f=ttk.Frame(self,padding=(18,14));f.pack(fill="both",expand=True);ttk.Label(f,text="Başarı: %{}".format(score),font=("Segoe UI",22,"bold")).pack(anchor="w");ttk.Label(f,text="{} soru • {} doğru • {} yanlış • {} boş".format(total,correct,wrong,blank)).pack(anchor="w",pady=(4,12))
+        tree=ttk.Treeview(f,columns=("topic","disease"),show="tree headings",height=10);tree.heading("#0",text="Yanlış yapılan soru");tree.heading("topic",text="Konu");tree.heading("disease",text="Hastalık");tree.column("#0",width=340);tree.column("topic",width=110);tree.column("disease",width=160);tree.pack(fill="both",expand=True)
         for q in wrong_rows:tree.insert("","end",iid=str(q["id"]),text=q["question_text"],values=(q["topic_tag"],q["disease_name"] or ""))
         def open_related():
             sel=tree.selection();ids=db.quiz_question_disease_ids(int(sel[0])) if sel else []
             if ids and on_open_disease:on_open_disease(ids[0])
-        ttk.Button(f,text="İlgili hastalığı aç",command=open_related).pack(side="left",pady=8);ttk.Button(f,text="Kapat",command=self.destroy).pack(side="right",pady=8)
+        ttk.Button(footer,text="İlgili hastalığı aç",command=open_related).pack(side="left");ttk.Button(footer,text="Kapat",command=self.destroy).pack(side="right")
 
 
 class QuizCenter(tk.Toplevel):
@@ -467,11 +468,23 @@ class QuizCenter(tk.Toplevel):
         if s and messagebox.askyesno("Soru sil","Seçili soru silinsin mi?",parent=self):self.db.quiz_question_delete(int(s[0]));self.refresh_bank()
     def build_start(self):
         card=ttk.LabelFrame(self.start,text="Test ayarları",padding=20);card.pack(anchor="n",fill="x",padx=80,pady=25);card.columnconfigure(1,weight=1)
-        self.mode=tk.StringVar(value="Sınav");self.exam_type=tk.StringVar(value="Çoktan seçmeli");self.count_var=tk.IntVar(value=10);self.diff=tk.StringVar(value="Tümü");self.topic=tk.StringVar(value="");self.only_selected=tk.BooleanVar(value=bool(self.selected_disease_id));self.feedback_option=tk.BooleanVar(value=False)
+        self.mode=tk.StringVar(value="Sınav");self.exam_type=tk.StringVar(value="Çoktan seçmeli");self.count_var=tk.IntVar(value=10);self.diff=tk.StringVar(value="Tümü");self.topic=tk.StringVar(value="");self.only_selected=tk.BooleanVar(value=bool(self.selected_disease_id));self.feedback_option=tk.BooleanVar(value=False);self.mode_help=tk.StringVar()
         rows=(("Test türü",ttk.Combobox(card,textvariable=self.exam_type,values=QUESTION_TYPES,state="readonly")),("Mod",ttk.Combobox(card,textvariable=self.mode,values=("Sınav","Çalışma"),state="readonly")),("Soru sayısı",ttk.Spinbox(card,from_=1,to=100,textvariable=self.count_var)),("Zorluk",ttk.Combobox(card,textvariable=self.diff,values=("Tümü",)+DIFFICULTIES,state="readonly")),("Konu etiketi",ttk.Combobox(card,textvariable=self.topic,values=self.db.quiz_topic_tags())))
         ttk.Label(card,text="Kişiselleştirilmiş test oluştur",font=("Segoe UI",16,"bold")).grid(row=0,column=0,columnspan=2,sticky="w",pady=(0,14))
         for i,(label,widget) in enumerate(rows,1):ttk.Label(card,text=label).grid(row=i,column=0,sticky="w",padx=(0,20),pady=6);widget.grid(row=i,column=1,sticky="ew",pady=6)
-        ttk.Checkbutton(card,text="Yalnız seçili hastalığın soruları",variable=self.only_selected,state="normal" if self.selected_disease_id else "disabled").grid(row=6,column=0,columnspan=2,sticky="w",pady=(12,4));ttk.Checkbutton(card,text="Cevap ve açıklama düğmesini etkinleştir",variable=self.feedback_option).grid(row=7,column=0,columnspan=2,sticky="w",pady=4);ttk.Button(card,text="Testi başlat",style="Primary.TButton",command=self.start_exam).grid(row=8,column=0,columnspan=2,sticky="w",pady=(18,0))
+        ttk.Checkbutton(card,text="Yalnız seçili hastalığın soruları",variable=self.only_selected,state="normal" if self.selected_disease_id else "disabled").grid(row=6,column=0,columnspan=2,sticky="w",pady=(12,4))
+        self.feedback_check=ttk.Checkbutton(card,text="Sınav sırasında cevap ve açıklama düğmesini etkinleştir",variable=self.feedback_option);self.feedback_check.grid(row=7,column=0,columnspan=2,sticky="w",pady=4)
+        ttk.Label(card,textvariable=self.mode_help,style="Muted.TLabel",wraplength=650).grid(row=8,column=0,columnspan=2,sticky="w",pady=(4,2))
+        ttk.Button(card,text="Testi başlat",style="Primary.TButton",command=self.start_exam).grid(row=9,column=0,columnspan=2,sticky="w",pady=(14,0))
+        self.mode.trace_add("write",lambda *a:self._update_mode_help());self._update_mode_help()
+    def _update_mode_help(self):
+        if self.mode.get()=="Çalışma":
+            self.mode_help.set("Çalışma modunda her soruda doğru cevap ve açıklama görüntülenebilir; bu düğme otomatik olarak etkindir. Sonuç yine geçmişe kaydedilir.")
+            self.feedback_check.configure(state="disabled")
+        else:
+            self.mode_help.set("Sınav modunda cevaplar değerlendirme sonuna kadar gizli tutulur. İsterseniz yukarıdaki seçeneği açarak geri bildirim düğmesini etkinleştirebilirsiniz.")
+            self.feedback_check.configure(state="normal")
+
     def start_exam(self):
         disease_id=self.selected_disease_id if self.only_selected.get() else None;diff="" if self.diff.get()=="Tümü" else self.diff.get()
         try:count=max(1,int(self.count_var.get()))
