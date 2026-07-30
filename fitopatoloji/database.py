@@ -2,7 +2,7 @@
 from .common import *
 
 class Database(object):
-    SCHEMA_VERSION = 20010
+    SCHEMA_VERSION = 20011
 
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
@@ -226,7 +226,11 @@ class Database(object):
                 difficulty TEXT NOT NULL DEFAULT 'Orta',
                 topic_tag TEXT NOT NULL DEFAULT '',
                 option_a TEXT NOT NULL DEFAULT '', option_b TEXT NOT NULL DEFAULT '',
-                option_c TEXT NOT NULL DEFAULT '', option_d TEXT NOT NULL DEFAULT '',
+                option_c TEXT NOT NULL DEFAULT '', option_d TEXT NOT NULL DEFAULT '', option_e TEXT NOT NULL DEFAULT '',
+                question_format_json TEXT NOT NULL DEFAULT '{}',
+                option_a_format_json TEXT NOT NULL DEFAULT '{}', option_b_format_json TEXT NOT NULL DEFAULT '{}',
+                option_c_format_json TEXT NOT NULL DEFAULT '{}', option_d_format_json TEXT NOT NULL DEFAULT '{}',
+                option_e_format_json TEXT NOT NULL DEFAULT '{}', explanation_format_json TEXT NOT NULL DEFAULT '{}',
                 correct_answer TEXT NOT NULL DEFAULT '', explanation TEXT NOT NULL DEFAULT '',
                 source_text TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
@@ -234,6 +238,13 @@ class Database(object):
             );
             CREATE INDEX IF NOT EXISTS idx_quiz_questions_disease ON quiz_questions(disease_id, is_active);
             CREATE INDEX IF NOT EXISTS idx_quiz_questions_topic ON quiz_questions(topic_tag COLLATE NOCASE);
+            CREATE TABLE IF NOT EXISTS quiz_question_diseases (
+                question_id INTEGER NOT NULL, disease_id INTEGER NOT NULL,
+                PRIMARY KEY(question_id, disease_id),
+                FOREIGN KEY(question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE,
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_quiz_qd_disease ON quiz_question_diseases(disease_id, question_id);
             CREATE TABLE IF NOT EXISTS quiz_sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, mode TEXT NOT NULL,
                 started_at TEXT NOT NULL, total_questions INTEGER NOT NULL,
@@ -308,6 +319,28 @@ class Database(object):
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_host_genus ON host_catalog(genus_name COLLATE NOCASE)")
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_host_group ON host_catalog(host_group COLLATE NOCASE)")
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_taxonomy_agent ON taxonomy_catalog(agent_group COLLATE NOCASE)")
+        # RC10.2 — sınav modülü genişletmeleri
+        quiz_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(quiz_questions)").fetchall()]
+        for column_name, definition in [
+            ("option_e", "TEXT NOT NULL DEFAULT ''"),
+            ("question_format_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("option_a_format_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("option_b_format_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("option_c_format_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("option_d_format_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("option_e_format_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("explanation_format_json", "TEXT NOT NULL DEFAULT '{}'")
+        ]:
+            if column_name not in quiz_columns:
+                self.conn.execute("ALTER TABLE quiz_questions ADD COLUMN {} {}".format(column_name, definition))
+        self.conn.execute("""CREATE TABLE IF NOT EXISTS quiz_question_diseases (
+            question_id INTEGER NOT NULL, disease_id INTEGER NOT NULL,
+            PRIMARY KEY(question_id, disease_id),
+            FOREIGN KEY(question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE,
+            FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE)""")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_quiz_qd_disease ON quiz_question_diseases(disease_id, question_id)")
+        self.conn.execute("""INSERT OR IGNORE INTO quiz_question_diseases(question_id,disease_id)
+            SELECT id,disease_id FROM quiz_questions WHERE disease_id IS NOT NULL""")
         self.conn.execute("PRAGMA user_version = {}".format(self.SCHEMA_VERSION))
         self.conn.commit()
         # Eski serbest metin sinonimlerini normalize edilmiş kataloğa taşı.
@@ -1063,32 +1096,51 @@ class Database(object):
         self.conn.execute("INSERT INTO monograph_exports (title,output_path,disease_count,created_at) VALUES (?,?,?,?)", (title,output_path,int(disease_count),now)); self.conn.commit()
 
 
-    # RC8 — Bilgi Sınavı ve Öğrenme Modülü
+    # RC8/RC10.2 — Bilgi Sınavı ve Öğrenme Modülü
     def quiz_questions(self, query="", disease_id=None, difficulty="", topic="", active_only=False):
         clauses=[]; params=[]
         if query:
-            like="%"+query.strip()+"%"; clauses.append("(q.question_text LIKE ? OR q.topic_tag LIKE ? OR q.explanation LIKE ?)"); params.extend([like]*3)
-        if disease_id is not None: clauses.append("q.disease_id=?"); params.append(int(disease_id))
+            like="%"+query.strip()+"%"; clauses.append("(q.question_text LIKE ? OR q.topic_tag LIKE ? OR q.explanation LIKE ? OR q.source_text LIKE ?)"); params.extend([like]*4)
+        if disease_id is not None:
+            clauses.append("EXISTS (SELECT 1 FROM quiz_question_diseases qd WHERE qd.question_id=q.id AND qd.disease_id=?)"); params.append(int(disease_id))
         if difficulty: clauses.append("q.difficulty=?"); params.append(difficulty)
         if topic: clauses.append("q.topic_tag LIKE ?"); params.append("%"+topic.strip()+"%")
         if active_only: clauses.append("q.is_active=1")
         where=(" WHERE "+" AND ".join(clauses)) if clauses else ""
-        return self.conn.execute("""SELECT q.*, d.disease_name, d.scientific_name FROM quiz_questions q
-            LEFT JOIN diseases d ON d.id=q.disease_id"""+where+" ORDER BY q.updated_at DESC, q.id DESC",params).fetchall()
+        return self.conn.execute("""SELECT q.*,
+            (SELECT GROUP_CONCAT(d.disease_name, '; ') FROM quiz_question_diseases qd JOIN diseases d ON d.id=qd.disease_id WHERE qd.question_id=q.id) disease_name,
+            (SELECT GROUP_CONCAT(d.scientific_name, '; ') FROM quiz_question_diseases qd JOIN diseases d ON d.id=qd.disease_id WHERE qd.question_id=q.id) scientific_name
+            FROM quiz_questions q"""+where+" ORDER BY q.updated_at DESC, q.id DESC",params).fetchall()
 
     def quiz_question_get(self, question_id):
-        return self.conn.execute("""SELECT q.*, d.disease_name, d.scientific_name FROM quiz_questions q
-            LEFT JOIN diseases d ON d.id=q.disease_id WHERE q.id=?""",(int(question_id),)).fetchone()
+        return self.conn.execute("""SELECT q.*,
+            (SELECT GROUP_CONCAT(d.disease_name, '; ') FROM quiz_question_diseases qd JOIN diseases d ON d.id=qd.disease_id WHERE qd.question_id=q.id) disease_name,
+            (SELECT GROUP_CONCAT(d.scientific_name, '; ') FROM quiz_question_diseases qd JOIN diseases d ON d.id=qd.disease_id WHERE qd.question_id=q.id) scientific_name
+            FROM quiz_questions q WHERE q.id=?""",(int(question_id),)).fetchone()
 
-    def quiz_question_save(self, question_id=None, **data):
+    def quiz_question_disease_ids(self, question_id):
+        return [int(r[0]) for r in self.conn.execute("SELECT disease_id FROM quiz_question_diseases WHERE question_id=? ORDER BY disease_id",(int(question_id),)).fetchall()]
+
+    def quiz_question_save(self, question_id=None, disease_ids=None, **data):
         now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        fields=("disease_id","question_type","question_text","difficulty","topic_tag","option_a","option_b","option_c","option_d","correct_answer","explanation","source_text")
+        fields=("disease_id","question_type","question_text","difficulty","topic_tag","option_a","option_b","option_c","option_d","option_e",
+            "question_format_json","option_a_format_json","option_b_format_json","option_c_format_json","option_d_format_json","option_e_format_json","explanation_format_json",
+            "correct_answer","explanation","source_text")
+        supplied_ids = list(disease_ids or [])
+        if not supplied_ids and data.get("disease_id") is not None:
+            supplied_ids = [data.get("disease_id")]
+        disease_ids=list(dict.fromkeys(int(x) for x in supplied_ids if x is not None))
+        primary=disease_ids[0] if disease_ids else None
+        data["disease_id"]=primary
         values=[data.get(f) if f=="disease_id" else (data.get(f,"") or "") for f in fields]
         if question_id:
             self.conn.execute("UPDATE quiz_questions SET "+", ".join(f+"=?" for f in fields)+", updated_at=? WHERE id=?",values+[now,int(question_id)])
             result=int(question_id)
         else:
             cur=self.conn.execute("INSERT INTO quiz_questions ("+", ".join(fields)+",is_active,created_at,updated_at) VALUES ("+", ".join(["?"]*len(fields))+",1,?,?)",values+[now,now]); result=cur.lastrowid
+        self.conn.execute("DELETE FROM quiz_question_diseases WHERE question_id=?",(result,))
+        for did in disease_ids:
+            self.conn.execute("INSERT OR IGNORE INTO quiz_question_diseases(question_id,disease_id) VALUES(?,?)",(result,did))
         self.conn.commit(); return result
 
     def quiz_question_delete(self, question_id):
@@ -1096,7 +1148,15 @@ class Database(object):
 
     def quiz_question_count(self, disease_id=None):
         if disease_id is None: return int(self.conn.execute("SELECT COUNT(*) FROM quiz_questions WHERE is_active=1").fetchone()[0])
-        return int(self.conn.execute("SELECT COUNT(*) FROM quiz_questions WHERE is_active=1 AND disease_id=?",(int(disease_id),)).fetchone()[0])
+        return int(self.conn.execute("SELECT COUNT(DISTINCT q.id) FROM quiz_questions q JOIN quiz_question_diseases qd ON qd.question_id=q.id WHERE q.is_active=1 AND qd.disease_id=?",(int(disease_id),)).fetchone()[0])
+
+    def quiz_topic_tags(self):
+        tags=[]
+        for row in self.conn.execute("SELECT topic_tag FROM quiz_questions WHERE TRIM(topic_tag)<>''").fetchall():
+            for tag in str(row[0]).replace(';',',').split(','):
+                tag=tag.strip()
+                if tag and tag not in tags: tags.append(tag)
+        return sorted(tags,key=lambda x:x.lower())
 
     def quiz_session_save(self, mode,total,correct,wrong,blank,score,duration_seconds,details):
         now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1106,6 +1166,12 @@ class Database(object):
 
     def quiz_sessions(self, limit=100):
         return self.conn.execute("SELECT * FROM quiz_sessions ORDER BY started_at DESC, id DESC LIMIT ?",(int(limit),)).fetchall()
+
+    def quiz_session_delete(self, session_id):
+        self.conn.execute("DELETE FROM quiz_sessions WHERE id=?",(int(session_id),)); self.conn.commit()
+
+    def quiz_sessions_clear(self):
+        self.conn.execute("DELETE FROM quiz_sessions"); self.conn.commit()
 
     def quiz_stats(self):
         row=self.conn.execute("SELECT COUNT(*) sessions, COALESCE(SUM(total_questions),0) questions, COALESCE(ROUND(AVG(score),1),0) average_score FROM quiz_sessions").fetchone()

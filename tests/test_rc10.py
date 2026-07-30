@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class RC10VisualTests(unittest.TestCase):
     def test_version(self):
-        self.assertEqual((ROOT / "VERSION.txt").read_text(encoding="utf-8").strip(), "2.0.0 RC10.1")
+        self.assertEqual((ROOT / "VERSION.txt").read_text(encoding="utf-8").strip(), "2.0.0 RC10.2")
 
     def test_theme_has_visual_tokens(self):
         text=(ROOT / "fitopatoloji" / "theme.py").read_text(encoding="utf-8")

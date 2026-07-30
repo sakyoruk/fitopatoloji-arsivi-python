@@ -1,0 +1,13 @@
+Fitopatoloji Arşivi 2.0.0 RC10.2
+
+Sınav modülü iyileştirmeleri:
+- Çoktan seçmeli sorular beş seçenekli (A-E) hale getirildi.
+- Soru düzenleyicide Kaydet ve İptal düğmeleri sabit alt çubuğa taşındı.
+- Soru kökü, seçenekler ve açıklamada seçili metni italik yapma desteği eklendi.
+- Test başlatma ekranı hizalı kart düzenine geçirildi.
+- Sınav geçmişinde seçili kaydı silme ve tüm geçmişi temizleme eklendi.
+- Testte önceki/sonraki soru, isteğe bağlı cevap-açıklama gösterimi ve erken sonlandırma eklendi.
+- Sorular birden fazla hastalıkla ilişkilendirilebilir; aramalı hastalık seçici eklendi.
+- Doğru/Yanlış ve Kısa Cevap soru türleri işlevsel hale getirildi.
+- Konu etiketleri filtrelenebilir hale getirildi; kaynak alanının amacı arayüzde açıklandı.
+- Veritabanı şeması 20011'e yükseltildi.

@@ -1,0 +1,6 @@
+Fitopatoloji Arşivi 2.0.0 RC10.1
+
+- Dijital Hastalık Dosyası kapatıldıktan sonra kalan genel fare tekerleği bağlantısı kaldırıldı.
+- Fare tekerleği artık yalnızca ilgili pencere ve kart alanı üzerinde çalışır.
+- Gecikmiş Tk olaylarında yok edilmiş Canvas bileşenine erişim güvenli biçimde engellenir.
+- Windows 7 / eski Tk sürümlerindeki TclError çökmesi giderildi.
