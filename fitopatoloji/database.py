@@ -99,8 +99,16 @@ class Database(object):
                 self.conn.execute("ALTER TABLE diseases ADD COLUMN {} {}".format(column_name, definition))
 
         columns = [row[1] for row in self.conn.execute("PRAGMA table_info(attachments)").fetchall()]
-        if "is_primary" not in columns:
-            self.conn.execute("ALTER TABLE attachments ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0")
+        for column_name, definition in [
+            ("is_primary", "INTEGER NOT NULL DEFAULT 0"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("captured_at", "TEXT NOT NULL DEFAULT ''"),
+            ("source", "TEXT NOT NULL DEFAULT ''"),
+            ("sort_order", "INTEGER NOT NULL DEFAULT 0"),
+        ]:
+            if column_name not in columns:
+                self.conn.execute("ALTER TABLE attachments ADD COLUMN {} {}".format(column_name, definition))
+        self.conn.execute("UPDATE attachments SET sort_order = id WHERE sort_order = 0")
         self.conn.commit()
 
     def seed_if_empty(self):
@@ -312,11 +320,17 @@ class Database(object):
             (disease_id,),
         ).fetchall()
 
-    def add_attachment(self, disease_id, file_type, relative_path, description=""):
+    def add_attachment(self, disease_id, file_type, relative_path, description="", title="", captured_at="", source=""):
         now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        next_order = self.conn.execute(
+            "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM attachments WHERE disease_id = ? AND file_type = ?",
+            (disease_id, file_type),
+        ).fetchone()[0]
         cur = self.conn.execute(
-            "INSERT INTO attachments (disease_id, file_type, relative_path, description, created_at) VALUES (?, ?, ?, ?, ?)",
-            (disease_id, file_type, relative_path, description, now),
+            """INSERT INTO attachments
+               (disease_id, file_type, relative_path, description, title, captured_at, source, sort_order, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (disease_id, file_type, relative_path, description, title, captured_at, source, next_order, now),
         )
         self.conn.commit()
         return cur.lastrowid
@@ -459,7 +473,7 @@ class Database(object):
         return self.conn.execute(
             """SELECT * FROM attachments
                WHERE disease_id = ? AND file_type = 'image'
-               ORDER BY is_primary DESC, created_at, id""",
+               ORDER BY is_primary DESC, sort_order, created_at, id""",
             (disease_id,),
         ).fetchall()
 
@@ -481,6 +495,25 @@ class Database(object):
         )
         self.conn.commit()
 
+
+
+    def update_attachment_metadata(self, attachment_id, title, description, captured_at, source):
+        self.conn.execute(
+            """UPDATE attachments
+               SET title = ?, description = ?, captured_at = ?, source = ?
+               WHERE id = ?""",
+            ((title or "").strip(), (description or "").strip(),
+             (captured_at or "").strip(), (source or "").strip(), attachment_id),
+        )
+        self.conn.commit()
+
+    def set_attachment_order(self, attachment_ids):
+        for index, attachment_id in enumerate(attachment_ids, 1):
+            self.conn.execute(
+                "UPDATE attachments SET sort_order = ? WHERE id = ?",
+                (index, attachment_id),
+            )
+        self.conn.commit()
 
     def attachment_annotations(self, attachment_id):
         row = self.conn.execute(

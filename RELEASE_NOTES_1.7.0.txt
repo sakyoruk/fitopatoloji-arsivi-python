@@ -1,0 +1,15 @@
+Fitopatoloji Arşivi 1.7.0 - Fotoğraf Yönetimi ve Görsel Katalog
+
+- Yeni Fotoğraf Yöneticisi ekranı eklendi.
+- Küçük/orta/büyük thumbnail ızgarası ve büyük fotoğraf önizlemesi eklendi.
+- Fotoğraflar sıra, tarih, dosya adı ve başlığa göre sıralanabiliyor.
+- Başlık, açıklama, çekim tarihi ve kaynak/fotoğrafçı bilgileri kaydedilebiliyor.
+- Ana fotoğraf katalogdan belirlenebiliyor.
+- Ctrl ile çoklu seçim ve toplu silme eklendi.
+- Fotoğraf sırası önceye/sonraya taşınabiliyor.
+- Panodan fotoğraf yapıştırma eklendi.
+- Çoklu fotoğraf seçiminden önce thumbnail önizleme ve listeden çıkarma eklendi.
+- Aynı fotoğrafın yeniden eklenmesine karşı SHA-256 tabanlı yinelenen dosya kontrolü eklendi.
+- Çok büyük fotoğraflar isteğe bağlı olarak azami 3000 piksele optimize ediliyor.
+- Galeriye seçili thumbnail üzerinden doğrudan geçiş sağlandı.
+- Veritabanı mevcut arşivlerle geriye uyumlu biçimde otomatik güncellenir.

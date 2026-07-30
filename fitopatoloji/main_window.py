@@ -4,6 +4,7 @@ from .editor import DiseaseEditor
 from .gallery import PhotoGallery
 from .comparison import DiseaseComparison
 from .preview import DiseasePreview
+from .photo_manager import PhotoManager, PhotoImportDialog
 from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
 
@@ -212,7 +213,8 @@ class MainWindow(tk.Tk):
         self.attach_tree.pack(side="left", fill="x", expand=True)
         attach_buttons = ttk.Frame(attachment_frame, style="Surface.TFrame")
         attach_buttons.pack(side="right", fill="y", padx=(8, 0))
-        ttk.Button(attach_buttons, text="Fotoğraf(lar) ekle", command=self.add_photo).pack(fill="x")
+        ttk.Button(attach_buttons, text="Fotoğraf yöneticisi", style="Primary.TButton", command=self.open_photo_manager).pack(fill="x")
+        ttk.Button(attach_buttons, text="Hızlı fotoğraf ekle", command=self.add_photo).pack(fill="x", pady=(4, 0))
         ttk.Button(attach_buttons, text="Belge ekle", command=self.add_document).pack(fill="x", pady=(4, 0))
         ttk.Button(attach_buttons, text="Galeri", command=self.open_gallery).pack(fill="x", pady=(4, 0))
         ttk.Button(attach_buttons, text="Aç", command=self.open_attachment).pack(fill="x", pady=4)
@@ -459,7 +461,31 @@ class MainWindow(tk.Tk):
         self.refresh_photo_catalog()
 
     def add_photo(self):
-        self.add_attachment("image")
+        if not self.selected_id:
+            messagebox.showinfo(APP_NAME, "Önce bir hastalık kaydı seçin.", parent=self)
+            return
+        dialog = PhotoImportDialog(self, self.paths)
+        if not dialog.result:
+            return
+        manager = PhotoManager(self, self.db, self.paths, self.selected_id, self.refresh_attachments)
+        manager.withdraw()
+        added, skipped, failed = manager._add_files(
+            dialog.result["files"], dialog.result["description"], dialog.result["optimize"]
+        )
+        manager.destroy()
+        self.refresh_attachments()
+        text = "{} fotoğraf eklendi.".format(added)
+        if skipped:
+            text += " {} yinelenen fotoğraf atlandı.".format(skipped)
+        if failed:
+            text += " {} fotoğraf eklenemedi.".format(failed)
+        self.status_var.set(text)
+
+    def open_photo_manager(self):
+        if not self.selected_id:
+            messagebox.showinfo(APP_NAME, "Önce bir hastalık kaydı seçin.", parent=self)
+            return
+        PhotoManager(self, self.db, self.paths, self.selected_id, self.refresh_attachments)
 
     def add_document(self):
         self.add_attachment("document")
