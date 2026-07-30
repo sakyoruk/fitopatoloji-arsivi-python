@@ -87,10 +87,9 @@ class MiniRichText(ttk.Frame):
     """Kalın/italik/birleşik biçimleri saklayan küçük metin düzenleyici."""
     def __init__(self, master, value="", formatting=None, height=3):
         ttk.Frame.__init__(self, master)
-        bar = ttk.Frame(self); bar.pack(fill="x", pady=(0, 2))
-        ttk.Button(bar, text="B", width=3, command=self.toggle_bold).pack(side="left")
-        ttk.Button(bar, text="I", width=3, command=self.toggle_italic).pack(side="left", padx=(2, 0))
-        ttk.Label(bar, text="Ctrl+B / Ctrl+I", style="Muted.TLabel").pack(side="left", padx=7)
+        bar = ttk.Frame(self); bar.pack(fill="x", pady=(0, 1))
+        ttk.Button(bar, text="B", width=2, command=self.toggle_bold).pack(side="left")
+        ttk.Button(bar, text="I", width=2, command=self.toggle_italic).pack(side="left", padx=(1, 0))
         body = ttk.Frame(self); body.pack(fill="both", expand=True)
         self.text = tk.Text(body, height=height, wrap="word", undo=True, font=("Segoe UI", 10))
         sb = ttk.Scrollbar(body, orient="vertical", command=self.text.yview)
@@ -275,35 +274,40 @@ class QuestionEditor(tk.Toplevel):
     def _val(self,key): return self.row[key] if self.row and key in self.row.keys() else ""
     def _build_type_tab(self,typ,frame):
         active=(self.current_type==typ)
+        frame.columnconfigure(0,weight=1)
+        frame.rowconfigure(5,weight=1)
+        ttk.Label(frame,text="Soru kökü").grid(row=0,column=0,sticky="w")
         q=MiniRichText(frame,self._val("question_text") if active else "",self._fmt("question_format_json") if active else {},height=2)
-        ttk.Label(frame,text="Soru kökü").pack(anchor="w");q.pack(fill="x",pady=(1,4)); self.editors[(typ,"question")]=q
+        q.grid(row=1,column=0,sticky="ew",pady=(1,3)); self.editors[(typ,"question")]=q
         if typ=="Çoktan seçmeli":
             opts=[]
-            option_area=ttk.LabelFrame(frame,text="Seçenekler (A–E)",padding=4);option_area.pack(fill="x",expand=False)
+            option_area=ttk.LabelFrame(frame,text="Seçenekler (A–E)",padding=3)
+            option_area.grid(row=2,column=0,sticky="ew",pady=(0,3))
             option_area.columnconfigure(0,weight=1); option_area.columnconfigure(1,weight=1)
             for i,(key,fkey) in enumerate(zip(OPTION_KEYS,FORMAT_KEYS)):
                 row=i//2; col=i%2
-                cell=ttk.Frame(option_area); cell.grid(row=row,column=col,sticky="nsew",padx=(0 if col==0 else 5,5 if col==0 else 0),pady=1)
-                ttk.Label(cell,text=chr(65+i)+")",width=3).pack(side="left",anchor="n",pady=20)
+                cell=ttk.Frame(option_area); cell.grid(row=row,column=col,sticky="nsew",padx=(0 if col==0 else 4,4 if col==0 else 0),pady=0)
+                ttk.Label(cell,text=chr(65+i)+")",width=2).pack(side="left",anchor="n",pady=17)
                 ed=MiniRichText(cell,self._val(key) if active else "",self._fmt(fkey) if active else {},height=1)
                 ed.pack(side="left",fill="both",expand=True);opts.append(ed)
-            # E seçeneği son satırın solunda kalır; doğru cevap seçimi sağda görünür.
-            ans=ttk.LabelFrame(option_area,text="Doğru cevap",padding=7)
-            ans.grid(row=2,column=1,sticky="nsew",padx=(5,0),pady=1)
+            ans=ttk.LabelFrame(option_area,text="Doğru cevap",padding=5)
+            ans.grid(row=2,column=1,sticky="nsew",padx=(4,0),pady=0)
             var=tk.StringVar(value=(self._val("correct_answer") if active else "A"))
-            ttk.Label(ans,text="Doğru seçenek:").pack(side="left",padx=(0,8))
-            ttk.Combobox(ans,textvariable=var,values=tuple("ABCDE"),state="readonly",width=8).pack(side="left")
+            ttk.Label(ans,text="Seçenek:").pack(side="left",padx=(0,5))
+            ttk.Combobox(ans,textvariable=var,values=tuple("ABCDE"),state="readonly",width=5).pack(side="left")
             self.editors[(typ,"options")]=opts; self.editors[(typ,"answer_var")]=var
         elif typ=="Doğru / Yanlış":
-            ans=ttk.LabelFrame(frame,text="Doğru cevap",padding=8);ans.pack(fill="x",pady=6)
+            ans=ttk.LabelFrame(frame,text="Doğru cevap",padding=6);ans.grid(row=2,column=0,sticky="ew",pady=(0,4))
             var=tk.StringVar(value=(self._val("correct_answer") if active else "Doğru"))
             ttk.Radiobutton(ans,text="Doğru",value="Doğru",variable=var).pack(side="left",padx=8);ttk.Radiobutton(ans,text="Yanlış",value="Yanlış",variable=var).pack(side="left",padx=8);self.editors[(typ,"answer_var")]=var
         else:
-            ttk.Label(frame,text="Kabul edilecek doğru cevap").pack(anchor="w",pady=(5,0))
-            ed=MiniRichText(frame,self._val("correct_answer") if active else "",self._fmt("correct_answer_format_json") if active else {},height=2);ed.pack(fill="x",pady=(2,6));self.editors[(typ,"answer")]=ed
-            ttk.Label(frame,text="Birden fazla kabul edilen cevap için | işareti kullanın: mildiyö | geç yanıklık",style="Muted.TLabel").pack(anchor="w")
-        ttk.Label(frame,text="Doğru cevabın açıklaması").pack(anchor="w",pady=(7,0))
-        exp=MiniRichText(frame,self._val("explanation") if active else "",self._fmt("explanation_format_json") if active else {},height=3);exp.pack(fill="both",expand=True,pady=(2,0));self.editors[(typ,"explanation")]=exp
+            answer_frame=ttk.Frame(frame); answer_frame.grid(row=2,column=0,sticky="ew",pady=(0,3))
+            ttk.Label(answer_frame,text="Kabul edilecek doğru cevap").pack(anchor="w")
+            ed=MiniRichText(answer_frame,self._val("correct_answer") if active else "",self._fmt("correct_answer_format_json") if active else {},height=2);ed.pack(fill="x",pady=(1,1));self.editors[(typ,"answer")]=ed
+            ttk.Label(answer_frame,text="Birden fazla kabul edilen cevap için | kullanın.",style="Muted.TLabel").pack(anchor="w")
+        ttk.Label(frame,text="Doğru cevabın açıklaması").grid(row=4,column=0,sticky="w",pady=(2,0))
+        exp=MiniRichText(frame,self._val("explanation") if active else "",self._fmt("explanation_format_json") if active else {},height=4)
+        exp.grid(row=5,column=0,sticky="nsew",pady=(1,0));self.editors[(typ,"explanation")]=exp
     def _tab_changed(self,event=None):
         self.current_type=QUESTION_TYPES[self.tabs.index(self.tabs.select())]
     def set_diseases(self,ids):
@@ -339,17 +343,44 @@ class ExamWindow(tk.Toplevel):
         self.index=0;self.answers={};self.feedback_seen=set();self.started=dt.datetime.now();self.finished=False
         self.title("{} — Bilgi Sınavı".format(mode));self.geometry("900x690");self.minsize(780,590);self.transient(master);center_window(self,900,690)
         self.protocol("WM_DELETE_WINDOW",self.request_finish)
-        root=ttk.Frame(self,padding=14);root.pack(fill="both",expand=True)
+        root=ttk.Frame(self,padding=10);root.pack(fill="both",expand=True)
         top=ttk.Frame(root);top.pack(fill="x");self.progress=tk.StringVar();ttk.Label(top,textvariable=self.progress,font=("Segoe UI",11,"bold")).pack(side="left");ttk.Button(top,text="Testi Sonlandır",command=self.request_finish).pack(side="right")
-        self.image_frame=ttk.Frame(root); self.image_label=ttk.Label(self.image_frame,anchor="center",cursor="hand2"); self.image_label.pack()
+        footer=ttk.Frame(root);footer.pack(fill="x",side="bottom",pady=(8,0))
+        self.prev_btn=ttk.Button(footer,text="Önceki",command=self.previous);self.prev_btn.pack(side="left")
+        self.next_btn=ttk.Button(footer,text="Sonraki",style="Primary.TButton",command=self.next);self.next_btn.pack(side="right")
+        self.check_btn=ttk.Button(footer,text="Cevabı ve açıklamayı göster",command=self.check_now);self.check_btn.pack(side="right",padx=8)
+        viewport=ttk.Frame(root);viewport.pack(fill="both",expand=True,pady=(8,0))
+        self.exam_canvas=tk.Canvas(viewport,highlightthickness=0,borderwidth=0)
+        self.exam_scroll=ttk.Scrollbar(viewport,orient="vertical",command=self.exam_canvas.yview)
+        self.exam_canvas.configure(yscrollcommand=self.exam_scroll.set)
+        self.exam_scroll.pack(side="right",fill="y");self.exam_canvas.pack(side="left",fill="both",expand=True)
+        self.content=ttk.Frame(self.exam_canvas,padding=(4,0,4,4))
+        self.content_window=self.exam_canvas.create_window((0,0),window=self.content,anchor="nw")
+        self.content.bind("<Configure>",lambda e:self.exam_canvas.configure(scrollregion=self.exam_canvas.bbox("all")))
+        self.exam_canvas.bind("<Configure>",lambda e:self.exam_canvas.itemconfigure(self.content_window,width=e.width))
+        self.exam_canvas.bind("<MouseWheel>",self._on_exam_wheel)
+        self.content.bind("<MouseWheel>",self._on_exam_wheel)
+        self.image_frame=ttk.Frame(self.content); self.image_label=ttk.Label(self.image_frame,anchor="center",cursor="hand2"); self.image_label.pack()
         self.image_caption_label=ttk.Label(self.image_frame,style="Muted.TLabel",wraplength=760,anchor="center"); self.image_caption_label.pack(fill="x",pady=(3,0))
         self.exam_image_ref=None; self.exam_image_path=""; self.image_label.bind("<Button-1>",lambda e:self.open_image_preview())
-        self.q_text=tk.Text(root,height=5,wrap="word",relief="flat",font=("Segoe UI",13));self.q_text.pack(fill="x",pady=(8,6))
-        self.answer_box=ttk.LabelFrame(root,text="Cevabınız",padding=10);self.answer_box.pack(fill="both",expand=True)
+        self.q_text=tk.Text(self.content,height=4,wrap="word",relief="flat",font=("Segoe UI",13));self.q_text.pack(fill="x",pady=(6,6))
+        self.answer_box=ttk.LabelFrame(self.content,text="Cevabınız",padding=8);self.answer_box.pack(fill="x")
         self.answer_var=tk.StringVar()
-        self.feedback=tk.Text(root,height=6,wrap="word",state="disabled",font=("Segoe UI",10));self.feedback.pack(fill="x",pady=(8,0))
-        bar=ttk.Frame(root);bar.pack(fill="x",pady=(10,0));self.prev_btn=ttk.Button(bar,text="Önceki",command=self.previous);self.prev_btn.pack(side="left");self.next_btn=ttk.Button(bar,text="Sonraki",style="Primary.TButton",command=self.next);self.next_btn.pack(side="right");self.check_btn=ttk.Button(bar,text="Cevabı ve açıklamayı göster",command=self.check_now);self.check_btn.pack(side="right",padx=8)
+        self.feedback=tk.Text(self.content,height=8,wrap="word",state="disabled",font=("Segoe UI",10));self.feedback.pack(fill="x",pady=(8,0))
+        self.q_text.bind("<MouseWheel>",self._on_exam_wheel); self.feedback.bind("<MouseWheel>",self._on_exam_wheel)
         self.show_question()
+    def _on_exam_wheel(self,event):
+        try:
+            delta=-1 if event.delta>0 else 1
+            self.exam_canvas.yview_scroll(delta,"units")
+        except tk.TclError:
+            pass
+        return "break"
+    @staticmethod
+    def _option_height(value):
+        text=value or ""
+        logical=sum(max(1,(len(line)+69)//70) for line in text.splitlines() or [""])
+        return max(2,min(8,logical))
     def _save_current(self):
         if self.questions:self.answers[int(self.questions[self.index]["id"])]=self.answer_var.get()
     def show_question(self):
@@ -368,12 +399,13 @@ class ExamWindow(tk.Toplevel):
         if typ=="Çoktan seçmeli":
             for code,key,fkey in zip("ABCDE",OPTION_KEYS,FORMAT_KEYS):
                 row=ttk.Frame(self.answer_box);row.pack(fill="x",pady=2);ttk.Radiobutton(row,value=code,variable=self.answer_var).pack(side="left",anchor="n",pady=5)
-                t=tk.Text(row,height=max(1,min(3,(len(q[key] or "")//90)+1)),wrap="word",relief="flat",cursor="arrow");t.pack(side="left",fill="x",expand=True);render_formatted_text(t,"{}) {}".format(code,q[key]),_offset_format(_loads_format(q[fkey]),3));t.bind("<Button-1>",lambda e,c=code:self.answer_var.set(c))
+                t=tk.Text(row,height=self._option_height(q[key]),wrap="word",relief="flat",cursor="arrow");t.pack(side="left",fill="x",expand=True);render_formatted_text(t,"{}) {}".format(code,q[key]),_offset_format(_loads_format(q[fkey]),3));t.bind("<Button-1>",lambda e,c=code:self.answer_var.set(c));t.bind("<MouseWheel>",self._on_exam_wheel)
         elif typ=="Doğru / Yanlış":
             for value in ("Doğru","Yanlış"):ttk.Radiobutton(self.answer_box,text=value,value=value,variable=self.answer_var).pack(anchor="w",pady=7)
         else:ttk.Entry(self.answer_box,textvariable=self.answer_var,font=("Segoe UI",12)).pack(fill="x",pady=8)
         self.prev_btn.configure(state="normal" if self.index>0 else "disabled");self.next_btn.configure(text="Sonuçları Göster" if self.index==len(self.questions)-1 else "Sonraki");self.check_btn.configure(state="normal" if self.show_feedback else "disabled")
         if qid in self.feedback_seen:self.check_now()
+        self.after_idle(lambda:self.exam_canvas.yview_moveto(0.0))
     def open_image_preview(self):
         if self.exam_image_path:
             q=self.questions[self.index]; QuizImagePreview(self,self.exam_image_path,(q["image_caption"] or "") if "image_caption" in q.keys() else "")
@@ -392,6 +424,7 @@ class ExamWindow(tk.Toplevel):
                 try:self.feedback.tag_add(tag,_add_index(start,a),_add_index(start,b))
                 except tk.TclError:pass
         self.feedback.configure(state="disabled")
+        self.after_idle(lambda:self.exam_canvas.yview_moveto(1.0))
     def previous(self):self._save_current();self.index=max(0,self.index-1);self.show_question()
     def next(self):
         self._save_current()

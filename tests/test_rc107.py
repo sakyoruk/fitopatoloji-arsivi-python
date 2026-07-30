@@ -8,7 +8,7 @@ class RC107QuizLayoutTests(unittest.TestCase):
         text=(ROOT / "fitopatoloji" / "quiz.py").read_text(encoding="utf-8")
         self.assertIn('before=self.q_text', text)
         self.assertIn('footer.pack(fill="x",side="bottom")', text)
-        self.assertIn('exp.pack(fill="both",expand=True', text)
+        self.assertTrue('exp.pack(fill="both",expand=True' in text or 'exp.grid(row=5,column=0,sticky="nsew"' in text)
     def test_mode_help_is_explained(self):
         text=(ROOT / "fitopatoloji" / "quiz.py").read_text(encoding="utf-8")
         self.assertIn('Çalışma modunda her soruda doğru cevap ve açıklama', text)
