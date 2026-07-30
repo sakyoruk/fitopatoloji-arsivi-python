@@ -5,6 +5,7 @@ from .gallery import PhotoGallery
 from .comparison import DiseaseComparison
 from .preview import DiseasePreview
 from .theme import apply_theme, COLORS
+from .rich_utils import apply_to_text_widget, to_reportlab
 
 class MainWindow(tk.Tk):
     def __init__(self, paths, database):
@@ -34,6 +35,8 @@ class MainWindow(tk.Tk):
         self.summary_photo = None
         self.summary_photo_label = None
         self.summary_text = None
+        self.attachment_thumbnail_refs = []
+        self.thumbnail_items = {}
 
         self.build_ui()
         self.refresh_groups()
@@ -187,7 +190,19 @@ class MainWindow(tk.Tk):
 
         attachment_frame = ttk.LabelFrame(right, text="Fotoğraflar ve belgeler", padding=8)
         attachment_frame.pack(fill="x", pady=(10, 0))
-        self.attach_tree = ttk.Treeview(attachment_frame, columns=("type", "name", "description"), show="headings", height=4)
+
+        catalog = ttk.Frame(attachment_frame, style="Surface.TFrame")
+        catalog.pack(fill="x", pady=(0, 7))
+        self.thumbnail_canvas = tk.Canvas(catalog, height=116, highlightthickness=0, background="#ffffff")
+        thumb_scroll = ttk.Scrollbar(catalog, orient="horizontal", command=self.thumbnail_canvas.xview)
+        self.thumbnail_canvas.configure(xscrollcommand=thumb_scroll.set)
+        self.thumbnail_canvas.pack(fill="x")
+        thumb_scroll.pack(fill="x")
+        self.thumbnail_inner = ttk.Frame(self.thumbnail_canvas, style="Surface.TFrame")
+        self.thumbnail_window = self.thumbnail_canvas.create_window((0, 0), window=self.thumbnail_inner, anchor="nw")
+        self.thumbnail_inner.bind("<Configure>", lambda _e: self.thumbnail_canvas.configure(scrollregion=self.thumbnail_canvas.bbox("all")))
+
+        self.attach_tree = ttk.Treeview(attachment_frame, columns=("type", "name", "description"), show="headings", height=3)
         self.attach_tree.heading("type", text="Tür")
         self.attach_tree.heading("name", text="Dosya")
         self.attach_tree.heading("description", text="Açıklama")
@@ -197,7 +212,7 @@ class MainWindow(tk.Tk):
         self.attach_tree.pack(side="left", fill="x", expand=True)
         attach_buttons = ttk.Frame(attachment_frame, style="Surface.TFrame")
         attach_buttons.pack(side="right", fill="y", padx=(8, 0))
-        ttk.Button(attach_buttons, text="Fotoğraf ekle", command=self.add_photo).pack(fill="x")
+        ttk.Button(attach_buttons, text="Fotoğraf(lar) ekle", command=self.add_photo).pack(fill="x")
         ttk.Button(attach_buttons, text="Belge ekle", command=self.add_document).pack(fill="x", pady=(4, 0))
         ttk.Button(attach_buttons, text="Galeri", command=self.open_gallery).pack(fill="x", pady=(4, 0))
         ttk.Button(attach_buttons, text="Aç", command=self.open_attachment).pack(fill="x", pady=4)
@@ -208,19 +223,8 @@ class MainWindow(tk.Tk):
         status.pack(fill="x", side="bottom")
 
     @staticmethod
-    def apply_rich_to_text(text_widget, formatting):
-        text_widget.tag_configure("bold", font=("Segoe UI", 9, "bold"))
-        text_widget.tag_configure("italic", font=("Segoe UI", 9, "italic"))
-        text_widget.tag_configure("underline", underline=True)
-        for item in formatting.get("tags", []):
-            tag = item.get("name", "")
-            if tag.startswith("color_"):
-                text_widget.tag_configure(tag, foreground=item.get("color", "#000000"))
-            for start, end in item.get("ranges", []):
-                try:
-                    text_widget.tag_add(tag, start, end)
-                except tk.TclError:
-                    pass
+    def apply_rich_to_text(text_widget, text_value, formatting, base_index="1.0", font_size=9):
+        apply_to_text_widget(text_widget, text_value or "", formatting or {}, base_index, font_size)
 
     def previous_record(self):
         items = list(self.tree.get_children())
@@ -364,7 +368,7 @@ class MainWindow(tk.Tk):
             text_widget.configure(state="normal")
             text_widget.delete("1.0", "end")
             text_widget.insert("1.0", record[field] or "")
-            self.apply_rich_to_text(text_widget, rich_map.get(field, {}))
+            self.apply_rich_to_text(text_widget, record[field] or "", rich_map.get(field, {}))
             text_widget.configure(state="disabled")
         self.refresh_attachments()
 
@@ -386,6 +390,7 @@ class MainWindow(tk.Tk):
             text.configure(state="disabled")
         for item in self.attach_tree.get_children():
             self.attach_tree.delete(item)
+        self.refresh_photo_catalog()
 
     def new_record(self):
         groups = self.db.list_groups()
@@ -451,6 +456,7 @@ class MainWindow(tk.Tk):
                     row["description"],
                 ),
             )
+        self.refresh_photo_catalog()
 
     def add_photo(self):
         self.add_attachment("image")
@@ -462,86 +468,103 @@ class MainWindow(tk.Tk):
         if not self.selected_id:
             messagebox.showinfo(APP_NAME, "Önce bir hastalık kaydı seçin.", parent=self)
             return
-
         image_exts = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff"}
         if requested_type == "image":
-            filename = filedialog.askopenfilename(
-                title="Fotoğraf seç",
-                filetypes=[
-                    ("Fotoğraf dosyaları", "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.tif;*.tiff"),
-                    ("Tüm dosyalar", "*.*"),
-                ],
-            )
+            filenames = list(filedialog.askopenfilenames(
+                title="Bir veya daha fazla fotoğraf seç",
+                filetypes=[("Fotoğraf dosyaları", "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.tif;*.tiff"), ("Tüm dosyalar", "*.*")],
+            ))
         else:
-            filename = filedialog.askopenfilename(
+            chosen = filedialog.askopenfilename(
                 title="Belge seç",
-                filetypes=[
-                    ("Belgeler", "*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.ppt;*.pptx;*.txt;*.rtf"),
-                    ("Tüm dosyalar", "*.*"),
-                ],
+                filetypes=[("Belgeler", "*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.ppt;*.pptx;*.txt;*.rtf"), ("Tüm dosyalar", "*.*")],
             )
-
-        if not filename:
+            filenames = [chosen] if chosen else []
+        if not filenames:
             return
-
-        ext = os.path.splitext(filename)[1].lower()
-        detected_type = "image" if ext in image_exts else "document"
-        file_type = requested_type or detected_type
-
-        if requested_type == "image" and detected_type != "image":
-            messagebox.showwarning(
-                APP_NAME,
-                "Seçilen dosya desteklenen bir fotoğraf biçiminde değil.",
-                parent=self,
-            )
-            return
-
+        valid=[]
+        for filename in filenames:
+            ext=os.path.splitext(filename)[1].lower()
+            if requested_type == "image" and ext not in image_exts:
+                continue
+            valid.append(filename)
+        if not valid:
+            messagebox.showwarning(APP_NAME, "Desteklenen bir fotoğraf seçilmedi.", parent=self); return
         description = simpledialog.askstring(
             APP_NAME,
-            "Dosya açıklaması (isteğe bağlı):",
+            "Seçilen dosyalar için ortak açıklama (isteğe bağlı):\nHer fotoğrafın açıklamasını galeriden ayrıca değiştirebilirsiniz.",
             parent=self,
         )
         if description is None:
             return
-
-        root_dir = self.paths.images if file_type == "image" else self.paths.documents
-        target_dir = os.path.join(root_dir, str(self.selected_id))
-        if not os.path.isdir(target_dir):
-            os.makedirs(target_dir)
-
-        original_name = os.path.basename(filename)
-        safe_name = "{}_{}".format(uuid.uuid4().hex[:10], original_name)
-        destination = os.path.join(target_dir, safe_name)
-
-        try:
-            shutil.copy2(filename, destination)
-        except Exception as exc:
-            messagebox.showerror(APP_NAME, "Dosya kopyalanamadı:\n{}".format(exc), parent=self)
-            return
-
-        relative = os.path.relpath(destination, self.paths.base)
-        try:
-            self.db.add_attachment(
-                self.selected_id,
-                file_type,
-                relative,
-                (description or "").strip(),
-            )
-        except Exception as exc:
+        added=[]; failed=[]
+        for filename in valid:
+            ext=os.path.splitext(filename)[1].lower()
+            file_type = requested_type or ("image" if ext in image_exts else "document")
+            root_dir=self.paths.images if file_type=="image" else self.paths.documents
+            target_dir=os.path.join(root_dir,str(self.selected_id))
+            if not os.path.isdir(target_dir): os.makedirs(target_dir)
+            original_name=os.path.basename(filename)
+            safe_name="{}_{}".format(uuid.uuid4().hex[:10],original_name)
+            destination=os.path.join(target_dir,safe_name)
             try:
-                os.remove(destination)
-            except Exception:
-                pass
-            messagebox.showerror(APP_NAME, "Dosya kaydedilemedi:\n{}".format(exc), parent=self)
-            return
-
+                shutil.copy2(filename,destination)
+                relative=os.path.relpath(destination,self.paths.base)
+                self.db.add_attachment(self.selected_id,file_type,relative,(description or "").strip())
+                added.append(original_name)
+            except Exception as exc:
+                failed.append("{}: {}".format(original_name,exc))
+                try:
+                    if os.path.isfile(destination): os.remove(destination)
+                except Exception: pass
         self.refresh_attachments()
-        self.status_var.set(
-            "{} eklendi: {}".format(
-                "Fotoğraf" if file_type == "image" else "Belge",
-                original_name,
-            )
-        )
+        if added:
+            self.status_var.set("{} dosya eklendi.".format(len(added)))
+        if failed:
+            messagebox.showwarning(APP_NAME, "Bazı dosyalar eklenemedi:\n" + "\n".join(failed[:8]), parent=self)
+
+    def refresh_photo_catalog(self):
+        if not hasattr(self, "thumbnail_inner"):
+            return
+        for child in self.thumbnail_inner.winfo_children(): child.destroy()
+        self.attachment_thumbnail_refs=[]; self.thumbnail_items={}
+        if not self.selected_id:
+            return
+        photos=list(self.db.image_attachments(self.selected_id))
+        if not photos:
+            ttk.Label(self.thumbnail_inner,text="Henüz fotoğraf yok. 'Fotoğraf(lar) ekle' ile toplu seçim yapabilirsiniz.",style="Muted.TLabel").pack(side="left",padx=8,pady=38)
+            return
+        for row in photos:
+            card=ttk.Frame(self.thumbnail_inner,style="Surface.TFrame",padding=4)
+            card.pack(side="left",padx=(0,7),pady=2)
+            path=os.path.join(self.paths.base,row["relative_path"])
+            photo=None
+            if PIL_AVAILABLE and os.path.isfile(path):
+                try:
+                    with Image.open(path) as src:
+                        im=src.convert("RGB"); im.thumbnail((104,72),Image.LANCZOS)
+                        tile=Image.new("RGB",(108,76),"white")
+                        tile.paste(im,((108-im.width)//2,(76-im.height)//2))
+                    photo=ImageTk.PhotoImage(tile); self.attachment_thumbnail_refs.append(photo)
+                except Exception: photo=None
+            label=ttk.Label(card,image=photo,text="Önizleme yok" if photo is None else "",compound="center",relief="solid",anchor="center")
+            label.pack()
+            name=os.path.basename(row["relative_path"]).split("_",1)[-1]
+            caption=("★ " if row["is_primary"] else "")+name
+            ttk.Label(card,text=caption[:18],width=18,anchor="center",style="Muted.TLabel").pack(pady=(3,0))
+            aid=int(row["id"])
+            for widget in (card,label):
+                widget.bind("<Button-1>",lambda _e,x=aid:self.select_thumbnail(x))
+                widget.bind("<Double-1>",lambda _e,x=aid:self.open_gallery_at(x))
+
+    def select_thumbnail(self, attachment_id):
+        iid=str(attachment_id)
+        if self.attach_tree.exists(iid):
+            self.attach_tree.selection_set(iid); self.attach_tree.focus(iid); self.attach_tree.see(iid)
+
+    def open_gallery_at(self, attachment_id):
+        self.select_thumbnail(attachment_id)
+        PhotoGallery(self,self.db,self.paths,self.selected_id,attachment_id)
 
     def selected_attachment(self):
         selection = self.attach_tree.selection()
@@ -682,28 +705,28 @@ class MainWindow(tk.Tk):
 
     def refresh_summary_card(self, record):
         if self.summary_text:
-            sections = [
-                ("Hastalık", record["disease_name"]),
-                ("Etmen grubu", record["group_name"]),
-                ("Konukçular", record["hosts"]),
-                ("Etkilenen organlar", record["affected_organs"]),
-                ("Belirtiler", record["symptoms"]),
-                ("Epidemiyoloji", record["epidemiology"]),
-                ("Türkiye dağılımı", record["distribution_turkey"]),
-                ("Dünya dağılımı", record["distribution_world"]),
-                ("Mücadele özeti", "\n".join(filter(None, [
-                    record["cultural_control"],
-                    record["biological_control"],
-                    record["chemical_control"],
-                ]))),
-            ]
+            sections = [("Hastalık", "disease_name"), ("Etmen grubu", "group_name"), ("Konukçular", "hosts"), ("Etkilenen organlar", "affected_organs"), ("Belirtiler", "symptoms"), ("Epidemiyoloji", "epidemiology"), ("Türkiye dağılımı", "distribution_turkey"), ("Dünya dağılımı", "distribution_world")]
+            rich_map = self.db.rich_text(record["id"])
             self.summary_text.configure(state="normal")
             self.summary_text.delete("1.0", "end")
-            for title, value in sections:
-                value = (value or "").strip()
+            for title, field in sections:
+                value = (record[field] or "").strip()
                 if value:
                     self.summary_text.insert("end", title + "\n", "heading")
-                    self.summary_text.insert("end", value + "\n\n")
+                    start_index = self.summary_text.index("end-1c")
+                    self.summary_text.insert("end", value)
+                    self.apply_rich_to_text(self.summary_text, value, rich_map.get(field, {}), start_index)
+                    self.summary_text.insert("end", "\n\n")
+            controls = [record["cultural_control"], record["biological_control"], record["chemical_control"]]
+            if any((value or "").strip() for value in controls):
+                self.summary_text.insert("end", "Mücadele özeti\n", "heading")
+                for field in ("cultural_control", "biological_control", "chemical_control"):
+                    value = (record[field] or "").strip()
+                    if value:
+                        start_index = self.summary_text.index("end-1c")
+                        self.summary_text.insert("end", value)
+                        self.apply_rich_to_text(self.summary_text, value, rich_map.get(field, {}), start_index)
+                        self.summary_text.insert("end", "\n")
             self.summary_text.tag_configure("heading", font=("Segoe UI", 9, "bold"))
             self.summary_text.configure(state="disabled")
 
@@ -717,13 +740,13 @@ class MainWindow(tk.Tk):
         if not os.path.isfile(path):
             return
         try:
-            image = Image.open(path).convert("RGB")
-            image.thumbnail((300, 260), Image.LANCZOS)
+            with Image.open(path) as source:
+                image = source.convert("RGB")
+                image.thumbnail((300, 260), Image.LANCZOS)
             self.summary_photo = ImageTk.PhotoImage(image)
             self.summary_photo_label.configure(image=self.summary_photo, text="")
         except Exception:
             self.summary_photo_label.configure(image="", text="Fotoğraf önizlenemedi")
-
     def toggle_favorite(self):
         if not self.selected_id:
             return
@@ -942,15 +965,8 @@ class MainWindow(tk.Tk):
             ]
 
             photos = self.db.image_attachments(self.selected_id)
-            if photos:
-                image_path = os.path.join(self.paths.base, photos[0]["relative_path"])
-                if os.path.isfile(image_path):
-                    try:
-                        image = RLImage(image_path)
-                        image._restrictSize(16 * cm, 8 * cm)
-                        story.extend([image, Spacer(1, 0.3 * cm)])
-                    except Exception:
-                        pass
+
+            rich_map = self.db.rich_text(self.selected_id)
 
             fields = [
                 ("Etmen grubu", "group_name"),
@@ -975,7 +991,7 @@ class MainWindow(tk.Tk):
                 value = (record[field] or "").strip()
                 if value:
                     story.append(Paragraph(title, heading_style))
-                    story.append(Paragraph(self._pdf_text(value), body_style))
+                    story.append(Paragraph(to_reportlab(value, rich_map.get(field, {})), body_style))
 
             refs = self.db.references(self.selected_id)
             if refs:
@@ -985,6 +1001,43 @@ class MainWindow(tk.Tk):
                     if ref["identifier"]:
                         line += " - " + ref["identifier"]
                     story.append(Paragraph(self._pdf_text("• " + line), body_style))
+
+            if photos:
+                story.append(Paragraph("Fotoğraflar", heading_style))
+                photo_cells = []
+                for photo_row in photos:
+                    image_path = os.path.join(self.paths.base, photo_row["relative_path"])
+                    if not os.path.isfile(image_path):
+                        continue
+                    try:
+                        image = RLImage(image_path)
+                        image._restrictSize(5.2 * cm, 3.6 * cm)
+                        caption = (photo_row["description"] or os.path.basename(photo_row["relative_path"]).split("_", 1)[-1]).strip()
+                        cell = [image, Paragraph(self._pdf_text(caption), ParagraphStyle(
+                            "PhotoCaption", parent=body_style, fontSize=7, leading=9, alignment=TA_CENTER
+                        ))]
+                        photo_cells.append(cell)
+                    except Exception:
+                        pass
+                if photo_cells:
+                    rows = []
+                    for index in range(0, len(photo_cells), 3):
+                        row = photo_cells[index:index + 3]
+                        while len(row) < 3:
+                            row.append("")
+                        rows.append(row)
+                    table = Table(rows, colWidths=[5.5 * cm] * 3, hAlign="CENTER")
+                    table.setStyle(TableStyle([
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("BOX", (0, 0), (-1, -1), 0.25, colors.lightgrey),
+                        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                        ("TOPPADDING", (0, 0), (-1, -1), 5),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ]))
+                    story.append(table)
 
             story.append(Spacer(1, 0.4 * cm))
             story.append(Paragraph(

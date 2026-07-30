@@ -1,0 +1,19 @@
+Fitopatoloji Arşivi 1.6.1 — Önizleme, Biçimlendirme ve Fotoğraf Kataloğu
+
+Düzeltmeler
+- İncele penceresinin ilk açılışta boş görünmesi giderildi.
+- Önizleme içeriği pencere yerleştikten sonra güvenli biçimde çiziliyor.
+- Kalın, italik, altı çizili ve renkli metinler bilgi kartında, sekmelerde, İncele penceresinde, HTML ve PDF raporlarında korunuyor.
+- Birleşik kalın + italik biçimi destekleniyor.
+
+Fotoğraf iyileştirmeleri
+- Önizleme fotoğrafları metnin altına taşındı.
+- Fotoğraflar sabit ve düzenli thumbnail kutularında gösteriliyor.
+- PDF raporunda fotoğraflar raporun sonunda, üç sütunlu düzenli katalog halinde yer alıyor.
+- Birden fazla fotoğraf aynı anda seçilip eklenebiliyor.
+- Ana pencerede yatay thumbnail fotoğraf kataloğu eklendi.
+- Thumbnail tek tıklamayla dosya seçer, çift tıklamayla galeriyi ilgili fotoğraftan açar.
+
+Uyumluluk
+- Mevcut veritabanı ve kayıtlarla uyumludur.
+- Windows 7 SP1 x64 ve mevcut PyInstaller derleme düzeni korunmuştur.
