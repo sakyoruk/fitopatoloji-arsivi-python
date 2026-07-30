@@ -5,6 +5,7 @@ from .gallery import PhotoGallery
 from .comparison import DiseaseComparison
 from .preview import DiseasePreview
 from .photo_manager import PhotoManager, PhotoImportDialog
+from .file_manager import FileManager
 from .dashboard import Dashboard
 from .disease_file import DiseaseFile
 from .knowledge_graph import KnowledgeCenter
@@ -337,86 +338,22 @@ class MainWindow(tk.Tk):
         record_actions = ttk.Frame(record_header, style="Surface.TFrame")
         record_actions.pack(side="right")
         ttk.Button(record_actions, text="Dosyayı Aç", style="Primary.TButton", command=self.open_disease_file).pack(side="left", padx=(0, 5))
+        ttk.Button(record_actions, text="Fotoğraflar", command=self.open_photo_manager).pack(side="left", padx=(0, 5))
+        ttk.Button(record_actions, text="Dosyalar", command=self.open_file_manager).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="İncele", command=self.preview_record).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Düzenle", command=self.edit_record).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Geçmiş", command=self.open_history).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Sil", style="Danger.TButton", command=self.delete_record).pack(side="left")
 
-        notebook = ttk.Notebook(right)
-        notebook.pack(fill="both", expand=True)
-
-        summary_tab = ttk.Frame(notebook, style="Surface.TFrame", padding=12)
-        notebook.add(summary_tab, text="Bilgi kartı")
-        summary_tab.columnconfigure(1, weight=1)
-        summary_tab.rowconfigure(0, weight=1)
-        self.summary_photo_label = ttk.Label(summary_tab, text="Ana fotoğraf yok", anchor="center", relief="solid", style="Surface.TLabel")
-        self.summary_photo_label.grid(row=0, column=0, sticky="n", padx=(0, 12))
-        self.summary_text = tk.Text(summary_tab, width=60, height=24, wrap="word", relief="flat", borderwidth=0, background="#ffffff", foreground=COLORS["text"], padx=10, pady=10)
-        self.summary_text.grid(row=0, column=1, sticky="nsew")
-        self.summary_text.configure(state="disabled")
-
-        tabs = [
-            ("Temel", ["synonyms", "hosts", "affected_organs"]),
-            ("Belirti ve biyoloji", ["symptoms", "pathogen_features", "disease_cycle", "epidemiology", "differential_diagnosis"]),
-            ("Mücadele", ["cultural_control", "biological_control", "chemical_control"]),
-            ("Dağılım", ["distribution_turkey", "distribution_world", "climate_notes"]),
-            ("Kaynak ve not", ["sources", "notes"]),
-        ]
-        labels = dict(LONG_FIELDS)
-        labels["synonyms"] = "Sinonimler / eski adlar"
-        for tab_name, fields in tabs:
-            outer = ttk.Frame(notebook, style="Surface.TFrame")
-            notebook.add(outer, text=tab_name)
-            canvas = tk.Canvas(outer, highlightthickness=0, background="#ffffff")
-            scroll = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-            inner = ttk.Frame(canvas, style="Surface.TFrame", padding=12)
-            inner.bind("<Configure>", lambda e, c=canvas: c.configure(scrollregion=c.bbox("all")))
-            canvas.create_window((0, 0), window=inner, anchor="nw")
-            canvas.configure(yscrollcommand=scroll.set)
-            canvas.pack(side="left", fill="both", expand=True)
-            scroll.pack(side="right", fill="y")
-            inner.columnconfigure(0, weight=1)
-            for idx, field in enumerate(fields):
-                ttk.Label(inner, text=labels[field], style="Section.TLabel").grid(row=idx * 2, column=0, sticky="w", pady=(7, 3))
-                text = tk.Text(inner, height=5, wrap="word", relief="solid", borderwidth=1, background="#ffffff", foreground=COLORS["text"], padx=8, pady=7)
-                text.grid(row=idx * 2 + 1, column=0, sticky="ew")
-                text.configure(state="disabled")
-                self.detail_texts[field] = text
-
-        attachment_frame = ttk.LabelFrame(right, text="Fotoğraflar ve belgeler", padding=8)
-        attachment_frame.pack(fill="x", pady=(8, 0))
-
-        attach_toolbar = ttk.Frame(attachment_frame, style="Surface.TFrame")
-        attach_toolbar.pack(fill="x", pady=(0, 6))
-        ttk.Button(attach_toolbar, text="Fotoğraf yöneticisi", style="Primary.TButton", command=self.open_photo_manager).pack(side="left")
-        ttk.Button(attach_toolbar, text="Fotoğraf ekle", command=self.add_photo).pack(side="left", padx=(5,0))
-        ttk.Button(attach_toolbar, text="Belge ekle", command=self.add_document).pack(side="left", padx=(5,0))
-        ttk.Button(attach_toolbar, text="Galeri", command=self.open_gallery).pack(side="left", padx=(5,0))
-        ttk.Button(attach_toolbar, text="Aç", command=self.open_attachment).pack(side="right")
-        ttk.Button(attach_toolbar, text="Kaldır", style="Danger.TButton", command=self.remove_attachment).pack(side="right", padx=(0,5))
-
-        catalog = ttk.Frame(attachment_frame, style="Surface.TFrame")
-        catalog.pack(fill="x", pady=(0, 6))
-        self.thumbnail_canvas = tk.Canvas(catalog, height=92, highlightthickness=0, background="#ffffff")
-        thumb_scroll = ttk.Scrollbar(catalog, orient="horizontal", command=self.thumbnail_canvas.xview)
-        self.thumbnail_canvas.configure(xscrollcommand=thumb_scroll.set)
-        self.thumbnail_canvas.pack(fill="x")
-        thumb_scroll.pack(fill="x")
-        self.thumbnail_inner = ttk.Frame(self.thumbnail_canvas, style="Surface.TFrame")
-        self.thumbnail_window = self.thumbnail_canvas.create_window((0, 0), window=self.thumbnail_inner, anchor="nw")
-        self.thumbnail_inner.bind("<Configure>", lambda _e: self.thumbnail_canvas.configure(scrollregion=self.thumbnail_canvas.bbox("all")))
-
-        tree_host = ttk.Frame(attachment_frame, style="Surface.TFrame")
-        tree_host.pack(fill="x")
-        self.attach_tree = ttk.Treeview(tree_host, columns=("type", "name", "description"), show="headings", height=2)
-        self.attach_tree.heading("type", text="Tür")
-        self.attach_tree.heading("name", text="Dosya")
-        self.attach_tree.heading("description", text="Açıklama")
-        self.attach_tree.column("type", width=70)
-        self.attach_tree.column("name", width=250)
-        self.attach_tree.column("description", width=310)
-        self.attach_tree.pack(fill="x", expand=True)
-        self.attach_tree.bind("<Double-1>", self.on_attachment_double_click)
+        # RC10.9: Hastalık bilgileri tek, büyük zengin metin alanında gösterilir.
+        detail = ttk.LabelFrame(right, text="Hastalık bilgileri", padding=10)
+        detail.pack(fill="both", expand=True)
+        detail.columnconfigure(0, weight=1); detail.rowconfigure(0, weight=1)
+        text = tk.Text(detail, wrap="word", relief="solid", borderwidth=1, background="#ffffff", foreground=COLORS["text"], padx=12, pady=10)
+        scroll = ttk.Scrollbar(detail, orient="vertical", command=text.yview)
+        text.configure(yscrollcommand=scroll.set, state="disabled")
+        text.grid(row=0, column=0, sticky="nsew"); scroll.grid(row=0, column=1, sticky="ns")
+        self.detail_texts["content_body"] = text
 
         status = ttk.Label(content, textvariable=self.status_var, anchor="w", style="Status.TLabel")
         status.pack(fill="x", side="bottom")
@@ -605,9 +542,7 @@ class MainWindow(tk.Tk):
             text.configure(state="normal")
             text.delete("1.0", "end")
             text.configure(state="disabled")
-        for item in self.attach_tree.get_children():
-            self.attach_tree.delete(item)
-        self.refresh_photo_catalog()
+        # Fotoğraf ve dosya listeleri artık kendi yöneticilerinde tutulur.
 
     def new_record(self):
         groups = self.db.list_groups(); key="new"
@@ -724,41 +659,11 @@ class MainWindow(tk.Tk):
         ttk.Button(frame,text="Etiketleri ekle",style="Primary.TButton",command=add_tags).pack(fill="x",pady=(12,4)); ttk.Button(frame,text="Favorilere ekle",command=lambda:favorite(1)).pack(fill="x",pady=4); ttk.Button(frame,text="Favorilerden çıkar",command=lambda:favorite(0)).pack(fill="x",pady=4)
 
     def refresh_attachments(self):
-        for item in self.attach_tree.get_children():
-            self.attach_tree.delete(item)
-        if not self.selected_id:
-            return
-        for row in self.db.attachments(self.selected_id):
-            self.attach_tree.insert(
-                "", "end", iid=str(row["id"]),
-                values=(
-                    ("★ Fotoğraf" if row["is_primary"] else "Fotoğraf") if row["file_type"] == "image" else "Belge",
-                    os.path.basename(row["relative_path"]).split("_", 1)[-1],
-                    row["description"],
-                ),
-            )
-        self.refresh_photo_catalog()
-
-    def add_photo(self):
-        if not self.selected_id:
-            messagebox.showinfo(APP_NAME, "Önce bir hastalık kaydı seçin.", parent=self)
-            return
-        dialog = PhotoImportDialog(self, self.paths)
-        if not dialog.result:
-            return
-        manager = PhotoManager(self, self.db, self.paths, self.selected_id, self.refresh_attachments)
-        manager.withdraw()
-        added, skipped, failed = manager._add_files(
-            dialog.result["files"], dialog.result["description"], dialog.result["optimize"]
-        )
-        manager.destroy()
-        self.refresh_attachments()
-        text = "{} fotoğraf eklendi.".format(added)
-        if skipped:
-            text += " {} yinelenen fotoğraf atlandı.".format(skipped)
-        if failed:
-            text += " {} fotoğraf eklenemedi.".format(failed)
-        self.status_var.set(text)
+        if not self.selected_id: return
+        try:
+            self.record_metric_vars["photos"].set(str(len(self.db.image_attachments(self.selected_id))))
+        except Exception:
+            pass
 
     def open_photo_manager(self):
         if not self.selected_id:
@@ -1009,49 +914,8 @@ class MainWindow(tk.Tk):
         dialog.bind("<Return>", lambda _e: run_diagnosis())
 
     def refresh_summary_card(self, record):
-        if self.summary_text:
-            sections = [("Hastalık", "disease_name"), ("Etmen grubu", "group_name"), ("Konukçular", "hosts"), ("Etkilenen organlar", "affected_organs"), ("Belirtiler", "symptoms"), ("Epidemiyoloji", "epidemiology"), ("Türkiye dağılımı", "distribution_turkey"), ("Dünya dağılımı", "distribution_world")]
-            rich_map = self.db.rich_text(record["id"])
-            self.summary_text.configure(state="normal")
-            self.summary_text.delete("1.0", "end")
-            for title, field in sections:
-                value = (record[field] or "").strip()
-                if value:
-                    self.summary_text.insert("end", title + "\n", "heading")
-                    start_index = self.summary_text.index("end-1c")
-                    self.summary_text.insert("end", value)
-                    self.apply_rich_to_text(self.summary_text, value, rich_map.get(field, {}), start_index)
-                    self.summary_text.insert("end", "\n\n")
-            controls = [record["cultural_control"], record["biological_control"], record["chemical_control"]]
-            if any((value or "").strip() for value in controls):
-                self.summary_text.insert("end", "Mücadele özeti\n", "heading")
-                for field in ("cultural_control", "biological_control", "chemical_control"):
-                    value = (record[field] or "").strip()
-                    if value:
-                        start_index = self.summary_text.index("end-1c")
-                        self.summary_text.insert("end", value)
-                        self.apply_rich_to_text(self.summary_text, value, rich_map.get(field, {}), start_index)
-                        self.summary_text.insert("end", "\n")
-            self.summary_text.tag_configure("heading", font=("Segoe UI", 9, "bold"))
-            self.summary_text.configure(state="disabled")
+        return
 
-        self.summary_photo = None
-        if self.summary_photo_label:
-            self.summary_photo_label.configure(image="", text="Ana fotoğraf yok")
-        photos = self.db.image_attachments(record["id"])
-        if not photos or not PIL_AVAILABLE or not self.summary_photo_label:
-            return
-        path = os.path.join(self.paths.base, photos[0]["relative_path"])
-        if not os.path.isfile(path):
-            return
-        try:
-            with Image.open(path) as source:
-                image = source.convert("RGB")
-                image.thumbnail((300, 260), Image.LANCZOS)
-            self.summary_photo = ImageTk.PhotoImage(image)
-            self.summary_photo_label.configure(image=self.summary_photo, text="")
-        except Exception:
-            self.summary_photo_label.configure(image="", text="Fotoğraf önizlenemedi")
     def toggle_favorite(self):
         if not self.selected_id:
             return
@@ -1273,6 +1137,9 @@ class MainWindow(tk.Tk):
 
             rich_map = self.db.rich_text(self.selected_id)
 
+            if (record["content_body"] or "").strip():
+                story.append(Paragraph("Hastalık bilgileri", heading_style))
+                story.append(Paragraph(to_reportlab(record["content_body"], rich_map.get("content_body", {})), body_style))
             fields = [
                 ("Etmen grubu", "group_name"),
                 ("Sinonimler / eski adlar", "synonyms"),

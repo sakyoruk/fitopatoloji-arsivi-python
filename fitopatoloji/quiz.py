@@ -326,6 +326,8 @@ class QuestionEditor(tk.Toplevel):
             for key,fkey,ed in zip(OPTION_KEYS,FORMAT_KEYS,opts):data[key]=ed.get_value();data[fkey]=json.dumps(ed.serialize(),ensure_ascii=False)
             if any(not data[k] for k in OPTION_KEYS):messagebox.showwarning("Eksik seçenek","Çoktan seçmeli sorularda A–E seçeneklerinin tamamı doldurulmalıdır.",parent=self);return
             data["correct_answer"]=self.editors[(typ,"answer_var")].get()
+            if not data["correct_answer"]:
+                messagebox.showwarning("Eksik doğru cevap", "Çoktan seçmeli sorularda doğru seçenek seçilmelidir.", parent=self); return
         elif typ=="Doğru / Yanlış":data["correct_answer"]=self.editors[(typ,"answer_var")].get()
         else:
             ans=self.editors[(typ,"answer")];data["correct_answer"]=ans.get_value();data["correct_answer_format_json"]=json.dumps(ans.serialize(),ensure_ascii=False)

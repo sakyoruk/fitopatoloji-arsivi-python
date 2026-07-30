@@ -11,7 +11,7 @@ class RC104RegressionTests(unittest.TestCase):
 
     def test_runtime_version_matches_package(self):
         common = (ROOT / "fitopatoloji" / "common.py").read_text(encoding="utf-8")
-        self.assertIn('APP_VERSION = "2.0.0 RC10.8"', common)
+        self.assertIn('APP_VERSION = "2.0.0 RC10.9"', common)
 
 if __name__ == "__main__":
     unittest.main()

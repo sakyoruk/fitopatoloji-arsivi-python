@@ -2,7 +2,7 @@
 from .common import *
 
 class Database(object):
-    SCHEMA_VERSION = 20013
+    SCHEMA_VERSION = 20014
 
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
@@ -71,6 +71,7 @@ class Database(object):
                 sources TEXT NOT NULL DEFAULT '',
                 favorite INTEGER NOT NULL DEFAULT 0,
                 notes TEXT NOT NULL DEFAULT '',
+                content_body TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -264,6 +265,7 @@ class Database(object):
             ("climate_notes", "TEXT NOT NULL DEFAULT ''"),
             ("favorite", "INTEGER NOT NULL DEFAULT 0"),
             ("deleted_at", "TEXT NOT NULL DEFAULT ''"),
+            ("content_body", "TEXT NOT NULL DEFAULT ''"),
             ("agent_group", "TEXT NOT NULL DEFAULT ''"),
             ("domain_name", "TEXT NOT NULL DEFAULT ''"),
             ("kingdom_name", "TEXT NOT NULL DEFAULT ''"),
@@ -349,6 +351,24 @@ class Database(object):
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_quiz_qd_disease ON quiz_question_diseases(disease_id, question_id)")
         self.conn.execute("""INSERT OR IGNORE INTO quiz_question_diseases(question_id,disease_id)
             SELECT id,disease_id FROM quiz_questions WHERE disease_id IS NOT NULL""")
+        # RC10.9 birleşik içerik geçişi: eski bölümlerdeki metinleri veri kaybı olmadan tek alanda birleştirir.
+        rows = self.conn.execute("SELECT * FROM diseases WHERE TRIM(COALESCE(content_body, '')) = ''").fetchall()
+        legacy_sections = [
+            ("Belirti", "symptoms"), ("Etmenin özellikleri", "pathogen_features"),
+            ("Hastalık Döngüsü", "disease_cycle"), ("Epidemiyoloji", "epidemiology"),
+            ("Ayırıcı Teşhis", "differential_diagnosis"), ("Kültürel Mücadele", "cultural_control"),
+            ("Biyolojik Mücadele", "biological_control"), ("Kimyasal Mücadele", "chemical_control"),
+            ("Türkiye Dağılımı", "distribution_turkey"), ("Dünya Dağılımı", "distribution_world"),
+            ("İklim / çevre şartları", "climate_notes"), ("Etkilenen organlar", "affected_organs"),
+        ]
+        for row in rows:
+            parts = []
+            for title, field in legacy_sections:
+                value = (row[field] or "").strip()
+                if value:
+                    parts.append(title + "\n" + value)
+            if parts:
+                self.conn.execute("UPDATE diseases SET content_body=? WHERE id=?", ("\n\n".join(parts), row["id"]))
         self.conn.execute("PRAGMA user_version = {}".format(self.SCHEMA_VERSION))
         self.conn.commit()
         # Eski serbest metin sinonimlerini normalize edilmiş kataloğa taşı.

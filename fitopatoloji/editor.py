@@ -23,10 +23,7 @@ def merge_host_ids(existing, added):
 class DiseaseEditor(tk.Toplevel):
     """Kayıt girişini hızlandıran, tamamlanma ve değişiklik takibi yapan düzenleyici."""
     IMPORTANT_FIELDS = [
-        "group_name", "scientific_name", "disease_name", "hosts",
-        "affected_organs", "symptoms", "pathogen_features",
-        "epidemiology", "differential_diagnosis", "cultural_control",
-        "sources",
+        "group_name", "scientific_name", "disease_name", "hosts", "content_body",
     ]
 
     def __init__(self, master, groups, initial=None, rich_initial=None, on_save=None, on_draft=None, draft_key=None, on_saved=None, database=None):
@@ -92,157 +89,58 @@ class DiseaseEditor(tk.Toplevel):
         ttk.Button(footer, text="Kaydet", style="Primary.TButton", command=self.save).pack(side="right")
 
     def _build_form(self, groups):
-        notebook = ttk.Notebook(self)
-        notebook.pack(side="top", fill="both", expand=True, padx=10, pady=(0, 0))
-        basic = ttk.Frame(notebook, padding=12)
-        biology = ttk.Frame(notebook, padding=12)
-        control = ttk.Frame(notebook, padding=12)
-        distribution = ttk.Frame(notebook, padding=12)
-        references = ttk.Frame(notebook, padding=12)
-        taxonomy = ttk.Frame(notebook, padding=12)
-        notebook.add(basic, text="Temel bilgiler")
-        notebook.add(taxonomy, text="Taksonomi")
-        notebook.add(biology, text="Belirti ve biyoloji")
-        notebook.add(control, text="Mücadele")
-        notebook.add(distribution, text="Dağılım")
-        notebook.add(references, text="Kaynak ve not")
+        # RC10.9: Sekmeli ve parçalı kayıt formu yerine tek akışlı temel bilgiler + birleşik zengin metin.
+        outer = ttk.Frame(self, padding=(10, 0, 10, 0))
+        outer.pack(side="top", fill="both", expand=True)
+        outer.columnconfigure(0, weight=1)
+        outer.rowconfigure(1, weight=1)
 
+        basic = ttk.LabelFrame(outer, text="Temel bilgiler", padding=10)
+        basic.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         basic.columnconfigure(1, weight=1)
+
         row = 0
-        ttk.Label(basic, text="Taksonomik grup  •").grid(row=row, column=0, sticky="w", pady=5)
+        ttk.Label(basic, text="Taksonomik grup  •").grid(row=row, column=0, sticky="w", pady=4)
         self.vars["group_name"] = tk.StringVar(value=self.initial.get("group_name", "ASCOMYCOTA"))
-        ttk.Combobox(basic, textvariable=self.vars["group_name"], values=groups, state="normal").grid(row=row, column=1, sticky="ew", pady=5)
+        ttk.Combobox(basic, textvariable=self.vars["group_name"], values=groups, state="normal").grid(row=row, column=1, sticky="ew", pady=4)
         row += 1
-        for field, label in [
-            ("scientific_name", "Bilimsel ad  *"),
-            ("synonyms", "Sinonimler / eski adlar"),
-            ("disease_name", "Hastalık adı  *"),
-            ("affected_organs", "Etkilenen organlar  •"),
-        ]:
-            ttk.Label(basic, text=label).grid(row=row, column=0, sticky="nw", pady=5)
-            if field == "affected_organs":
-                editor = RichTextEditor(basic, value=self.initial.get(field, "") or "", formatting=self.rich_initial.get(field, {}), height=4)
-                editor.grid(row=row, column=1, sticky="nsew", pady=5)
-                self.texts[field] = editor
-                basic.rowconfigure(row, weight=1)
-            else:
-                var = tk.StringVar(value=self.initial.get(field, "") or "")
-                entry = tk.Entry(basic, textvariable=var, font=("Segoe UI", 9, "italic")) if field == "scientific_name" else ttk.Entry(basic, textvariable=var)
-                entry.grid(row=row, column=1, sticky="ew", pady=5)
-                self.vars[field] = var
+        for field, label in (("scientific_name", "Bilimsel ad  *"), ("synonyms", "Sinonimler / eski adlar"), ("disease_name", "Hastalık adı  *")):
+            ttk.Label(basic, text=label).grid(row=row, column=0, sticky="w", pady=4)
+            var = tk.StringVar(value=self.initial.get(field, "") or "")
+            entry = tk.Entry(basic, textvariable=var, font=("Segoe UI", 9, "italic")) if field == "scientific_name" else ttk.Entry(basic, textvariable=var)
+            entry.grid(row=row, column=1, sticky="ew", pady=4)
+            self.vars[field] = var
             row += 1
-        ttk.Label(basic, text="Konukçular  •").grid(row=row, column=0, sticky="nw", pady=5)
+
+        ttk.Label(basic, text="Konukçular  •").grid(row=row, column=0, sticky="nw", pady=4)
         host_box = ttk.Frame(basic)
-        host_box.grid(row=row, column=1, sticky="nsew", pady=5)
-        host_box.columnconfigure(0, weight=1)
-        host_box.rowconfigure(1, weight=1)
-        host_toolbar = ttk.Frame(host_box)
-        host_toolbar.grid(row=0, column=0, sticky="ew", pady=(0, 5))
+        host_box.grid(row=row, column=1, sticky="nsew", pady=4)
+        host_box.columnconfigure(0, weight=1); host_box.rowconfigure(1, weight=1)
+        host_toolbar = ttk.Frame(host_box); host_toolbar.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         ttk.Button(host_toolbar, text="Konukçu ekle", style="Primary.TButton", command=self._select_hosts).pack(side="left")
-        ttk.Button(host_toolbar, text="İlişkiyi düzenle", command=self._edit_selected_host_relation).pack(side="left", padx=(6, 0))
-        ttk.Button(host_toolbar, text="Seçileni kaldır", command=self._remove_selected_hosts).pack(side="left", padx=(6, 0))
-        self.host_count_var = tk.StringVar(value="0 konukçu")
-        ttk.Label(host_toolbar, textvariable=self.host_count_var).pack(side="right")
-        self.host_tree = ttk.Treeview(host_box, columns=("common", "scientific", "level", "relation", "scope", "excluded"), show="headings", height=5, selectmode="extended")
-        for key, text, width in [("common", "Türkçe ad", 140), ("scientific", "Bilimsel ad", 190), ("level", "Düzey", 70), ("relation", "İlişki", 125), ("scope", "Kapsam", 110), ("excluded", "Durum", 65)]:
-            self.host_tree.heading(key, text=text)
-            self.host_tree.column(key, width=width, anchor="w")
+        ttk.Button(host_toolbar, text="İlişkiyi düzenle", command=self._edit_selected_host_relation).pack(side="left", padx=(5, 0))
+        ttk.Button(host_toolbar, text="Seçileni kaldır", command=self._remove_selected_hosts).pack(side="left", padx=(5, 0))
+        self.host_count_var = tk.StringVar(value="0 konukçu"); ttk.Label(host_toolbar, textvariable=self.host_count_var).pack(side="right")
+        self.host_tree = ttk.Treeview(host_box, columns=("common", "scientific", "level", "relation", "scope", "excluded"), show="headings", height=3, selectmode="extended")
+        for key, text, width in (("common", "Türkçe ad", 125), ("scientific", "Bilimsel ad", 180), ("level", "Düzey", 65), ("relation", "İlişki", 115), ("scope", "Kapsam", 95), ("excluded", "Durum", 60)):
+            self.host_tree.heading(key, text=text); self.host_tree.column(key, width=width, anchor="w")
         host_scroll = ttk.Scrollbar(host_box, orient="vertical", command=self.host_tree.yview)
         self.host_tree.configure(yscrollcommand=host_scroll.set)
-        self.host_tree.grid(row=1, column=0, sticky="nsew")
-        host_scroll.grid(row=1, column=1, sticky="ns")
+        self.host_tree.grid(row=1, column=0, sticky="nsew"); host_scroll.grid(row=1, column=1, sticky="ns")
         self.hosts_var = tk.StringVar(value=self.initial.get("hosts", "") or "")
-        basic.rowconfigure(row, weight=1)
         self._refresh_selected_hosts()
         row += 1
-        ttk.Label(basic, text="Etiketler").grid(row=row, column=0, sticky="w", pady=5)
+        ttk.Label(basic, text="Etiketler").grid(row=row, column=0, sticky="w", pady=4)
         self.vars["_tags"] = tk.StringVar(value=self.initial.get("_tags", "") or "")
-        ttk.Entry(basic, textvariable=self.vars["_tags"]).grid(row=row, column=1, sticky="ew", pady=5)
+        ttk.Entry(basic, textvariable=self.vars["_tags"]).grid(row=row, column=1, sticky="ew", pady=4)
 
-        taxonomy.columnconfigure(1, weight=1)
-        tax_fields = [("agent_group", "Etmen grubu")] + TAXON_RANKS + [("taxonomy_source", "Taksonomi kaynağı"), ("taxonomy_accessed_at", "Erişim tarihi"), ("taxonomy_notes", "Taksonomi notu")]
-        for idx, (field, label) in enumerate(tax_fields):
-            ttk.Label(taxonomy, text=label).grid(row=idx, column=0, sticky="w", pady=4, padx=(0,10))
-            var = tk.StringVar(value=self.initial.get(field, "") or "")
-            if field == "agent_group":
-                widget = ttk.Combobox(taxonomy, textvariable=var, values=AGENT_GROUPS, state="normal")
-            else:
-                widget = ttk.Entry(taxonomy, textvariable=var)
-            widget.grid(row=idx, column=1, sticky="ew", pady=4)
-            self.vars[field] = var
-
-        for frame, fields in [
-            (biology, [("symptoms", "Belirtiler  •"), ("pathogen_features", "Etmenin özellikleri  •"), ("disease_cycle", "Hastalık döngüsü"), ("epidemiology", "Epidemiyoloji / uygun çevre koşulları  •"), ("differential_diagnosis", "Ayırıcı teşhis  •")]),
-            (control, [("cultural_control", "Kültürel mücadele  •"), ("biological_control", "Biyolojik mücadele"), ("chemical_control", "Kimyasal mücadele / prensipler")]),
-            (distribution, [("distribution_turkey", "Türkiye dağılımı"), ("distribution_world", "Dünya dağılımı"), ("climate_notes", "İklim / çevre notları")]),
-            (references, [("sources", "Kaynaklar  •"), ("notes", "Kişisel notlar")]),
-        ]:
-            frame.columnconfigure(0, weight=1)
-            for idx, (field, label) in enumerate(fields):
-                frame.rowconfigure(idx*2+1, weight=1)
-                ttk.Label(frame, text=label).grid(row=idx*2, column=0, sticky="w", pady=(5,2))
-                editor = RichTextEditor(frame, value=self.initial.get(field, "") or "", formatting=self.rich_initial.get(field, {}), height=6)
-                editor.grid(row=idx*2+1, column=0, sticky="nsew", pady=(0,7))
-                self.texts[field] = editor
-
-    def _refresh_selected_hosts(self):
-        if not hasattr(self, "host_tree"):
-            return
-        self.host_tree.delete(*self.host_tree.get_children())
-        names=[]; valid=[]
-        if self.db:
-            for relation in self.selected_host_relations:
-                try: host_id=int(relation.get("host_id"))
-                except (TypeError,ValueError): continue
-                row=self.db.host_get(host_id)
-                if not row: continue
-                normalized={"host_id":host_id,"relation_type":relation.get("relation_type","Doğal konukçu"),"scope_type":relation.get("scope_type","Doğrudan"),"relation_note":relation.get("relation_note",""),"is_excluded":int(bool(relation.get("is_excluded",0)))}
-                valid.append(normalized)
-                common=row["common_name"] or ""; scientific=row["scientific_name"] or ""
-                self.host_tree.insert("","end",iid=str(host_id),values=(common,scientific,row["taxon_level"] or "",normalized["relation_type"],normalized["scope_type"],"Hariç" if normalized["is_excluded"] else "Dahil"))
-                names.append("{} ({})".format(common,scientific) if common and scientific else (common or scientific))
-        self.selected_host_relations=valid
-        self.selected_host_ids=[r["host_id"] for r in valid]
-        self.hosts_var.set(", ".join(names)); self.host_count_var.set("{} konukçu".format(len(valid)))
-
-    def _select_hosts(self):
-        if not self.db:
-            messagebox.showinfo(APP_NAME, "Konukçu kataloğu kullanılamıyor.", parent=self)
-            return
-        def selected(rows):
-            existing=set(self.selected_host_ids)
-            for row in rows:
-                host_id=int(row["id"])
-                if host_id not in existing:
-                    self.selected_host_relations.append({"host_id":host_id,"relation_type":"Doğal konukçu","scope_type":"Doğrudan","relation_note":"","is_excluded":0}); existing.add(host_id)
-            self._refresh_selected_hosts(); self.mark_dirty()
-        HostCatalog(self, self.db, select_mode=True, on_select=selected, preselected_ids=self.selected_host_ids)
-
-    def _remove_selected_hosts(self):
-        selected = [int(iid) for iid in self.host_tree.selection()]
-        if not selected:
-            messagebox.showinfo(APP_NAME, "Kaldırmak için bir veya daha fazla konukçu seçin.", parent=self)
-            return
-        remove_ids=set(selected)
-        self.selected_host_relations=[r for r in self.selected_host_relations if int(r.get("host_id")) not in remove_ids]
-        self._refresh_selected_hosts(); self.mark_dirty()
-
-    def _edit_selected_host_relation(self):
-        selected=self.host_tree.selection()
-        if len(selected)!=1:
-            messagebox.showinfo(APP_NAME,"Düzenlemek için tek bir konukçu seçin.",parent=self); return
-        host_id=int(selected[0]); relation=next((r for r in self.selected_host_relations if int(r.get("host_id"))==host_id),None)
-        if not relation:return
-        dlg=tk.Toplevel(self); dlg.title("Konukçu ilişkisini düzenle"); dlg.transient(self); dlg.grab_set(); dlg.geometry("560x360")
-        frm=ttk.Frame(dlg,padding=14); frm.pack(fill="both",expand=True); frm.columnconfigure(1,weight=1)
-        relation_var=tk.StringVar(value=relation.get("relation_type","Doğal konukçu")); scope_var=tk.StringVar(value=relation.get("scope_type","Doğrudan")); excluded_var=tk.BooleanVar(value=bool(relation.get("is_excluded",0))); note_var=tk.StringVar(value=relation.get("relation_note",""))
-        ttk.Label(frm,text="İlişki türü").grid(row=0,column=0,sticky="w",pady=7); ttk.Combobox(frm,textvariable=relation_var,values=["Doğal konukçu","Alternatif konukçu","Deneysel konukçu","Ara konukçu","Rezervuar / taşıyıcı","Konukçu değil","Belirsiz"],state="readonly").grid(row=0,column=1,sticky="ew",pady=7)
-        ttk.Label(frm,text="Kapsam").grid(row=1,column=0,sticky="w",pady=7); ttk.Combobox(frm,textvariable=scope_var,values=["Doğrudan","Familyanın tamamı","Familya içinde bazı türler","Cinsin tamamı","Cins içinde bazı türler","Çeşit / kültivar düzeyi"],state="readonly").grid(row=1,column=1,sticky="ew",pady=7)
-        ttk.Label(frm,text="Not").grid(row=2,column=0,sticky="w",pady=7); ttk.Entry(frm,textvariable=note_var).grid(row=2,column=1,sticky="ew",pady=7)
-        ttk.Checkbutton(frm,text="Bu kaydı hariç tutulan / konukçu olmayan kayıt olarak işaretle",variable=excluded_var).grid(row=3,column=0,columnspan=2,sticky="w",pady=12)
-        def save():
-            relation.update({"relation_type":relation_var.get(),"scope_type":scope_var.get(),"relation_note":note_var.get().strip(),"is_excluded":int(excluded_var.get())}); self._refresh_selected_hosts(); self.mark_dirty(); dlg.destroy()
-        ttk.Button(frm,text="Kaydet",style="Primary.TButton",command=save).grid(row=4,column=1,sticky="e",pady=(18,0))
+        content = ttk.LabelFrame(outer, text="Hastalık bilgileri", padding=8)
+        content.grid(row=1, column=0, sticky="nsew")
+        content.columnconfigure(0, weight=1); content.rowconfigure(1, weight=1)
+        ttk.Label(content, text="Belirti, etmenin özellikleri, hastalık döngüsü, epidemiyoloji, ayırıcı teşhis, mücadele, dağılım ve çevre koşullarını tek metin içinde düzenleyin.", wraplength=900).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        editor = RichTextEditor(content, value=self.initial.get("content_body", "") or "", formatting=self.rich_initial.get("content_body", {}), height=18)
+        editor.grid(row=1, column=0, sticky="nsew")
+        self.texts["content_body"] = editor
 
     def _bind_change_tracking(self):
         for var in self.vars.values():

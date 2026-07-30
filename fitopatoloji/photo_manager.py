@@ -131,8 +131,8 @@ class PhotoManager(tk.Toplevel):
         self.category_filter = tk.StringVar(value="Tümü")
         self.info_var = tk.StringVar(value="")
         self.title("Fotoğraf yöneticisi")
-        self.geometry("1120x720")
-        self.minsize(900, 600)
+        self.geometry("1120x760")
+        self.minsize(900, 620)
         self.transient(master)
         self.protocol("WM_DELETE_WINDOW", self.close)
         self._build()
@@ -159,8 +159,16 @@ class PhotoManager(tk.Toplevel):
         paned = ttk.Panedwindow(self, orient="horizontal")
         paned.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         left = ttk.Frame(paned)
-        right = ttk.Frame(paned, padding=10)
-        paned.add(left, weight=3); paned.add(right, weight=2)
+        right_host = ttk.Frame(paned)
+        paned.add(left, weight=3); paned.add(right_host, weight=2)
+        right_canvas = tk.Canvas(right_host, highlightthickness=0, background="#ffffff")
+        right_scroll = ttk.Scrollbar(right_host, orient="vertical", command=right_canvas.yview)
+        right = ttk.Frame(right_canvas, padding=10)
+        right_window = right_canvas.create_window((0,0), window=right, anchor="nw")
+        right.bind("<Configure>", lambda _e: right_canvas.configure(scrollregion=right_canvas.bbox("all")))
+        right_canvas.bind("<Configure>", lambda e: right_canvas.itemconfigure(right_window, width=e.width))
+        right_canvas.configure(yscrollcommand=right_scroll.set)
+        right_canvas.pack(side="left", fill="both", expand=True); right_scroll.pack(side="right", fill="y")
 
         self.canvas = tk.Canvas(left, background="#ffffff", highlightthickness=0)
         sy = ttk.Scrollbar(left, orient="vertical", command=self.canvas.yview)
@@ -189,8 +197,8 @@ class PhotoManager(tk.Toplevel):
         self.category_var = tk.StringVar(value="Genel")
         self.category_combo = ttk.Combobox(form,textvariable=self.category_var,values=("Genel","Saha","Makro","Mikroskop","Laboratuvar","Belirti","Etmen","Mücadele"),state="readonly")
         for row, (label, widget) in enumerate((("Başlık", self.title_entry), ("Açıklama", self.description_entry), ("Çekim tarihi", self.date_entry), ("Kaynak", self.source_entry), ("Fotoğrafçı", self.photographer_entry), ("Telif sahibi", self.copyright_entry), ("Lisans / kullanım", self.license_entry), ("Ölçek bilgisi", self.scale_entry), ("Çekim yeri", self.location_entry), ("Fotoğraf kategorisi", self.category_combo))):
-            ttk.Label(form, text=label+":").grid(row=row, column=0, sticky="w", pady=4)
-            widget.grid(row=row, column=1, sticky="ew", padx=(8,0), pady=4)
+            ttk.Label(form, text=label+":").grid(row=row, column=0, sticky="w", pady=2)
+            widget.grid(row=row, column=1, sticky="ew", padx=(8,0), pady=2)
         form.columnconfigure(1, weight=1)
         actions = ttk.Frame(right)
         actions.pack(fill="x", pady=8)
@@ -282,8 +290,8 @@ class PhotoManager(tk.Toplevel):
         if PIL_AVAILABLE and os.path.isfile(path):
             try:
                 with Image.open(path) as src:
-                    im=src.convert("RGB"); original=im.size; im.thumbnail((390,260),Image.LANCZOS)
-                    tile=Image.new("RGB",(400,270),"white"); tile.paste(im,((400-im.width)//2,(270-im.height)//2))
+                    im=src.convert("RGB"); original=im.size; im.thumbnail((360,210),Image.LANCZOS)
+                    tile=Image.new("RGB",(370,220),"white"); tile.paste(im,((370-im.width)//2,(220-im.height)//2))
                 self.preview_ref=ImageTk.PhotoImage(tile); self.preview_label.configure(image=self.preview_ref,text="")
                 self.info_var.set("{} × {} piksel  •  {}".format(original[0],original[1],os.path.basename(path).split("_",1)[-1]))
             except Exception:
