@@ -671,6 +671,13 @@ class MainWindow(tk.Tk):
             return
         PhotoManager(self, self.db, self.paths, self.selected_id, self.refresh_attachments)
 
+    def open_file_manager(self):
+        """Seçili hastalığa bağlı fotoğraf dışındaki dosyaları yönetir."""
+        if not self.selected_id:
+            messagebox.showinfo(APP_NAME, "Önce bir hastalık kaydı seçin.", parent=self)
+            return
+        FileManager(self, self.db, self.paths, self.selected_id, self.refresh_attachments)
+
     def add_document(self):
         self.add_attachment("document")
 
