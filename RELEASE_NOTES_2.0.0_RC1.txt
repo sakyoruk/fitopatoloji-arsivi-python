@@ -1,0 +1,16 @@
+Fitopatoloji Arşivi 2.0.0 RC1
+================================
+
+Bilimsel Masaüstü arayüzü
+- DOSYA, KAYIT, FOTOĞRAF, ANALİZ ve YARDIM sekmelerinden oluşan yeni komut şeridi.
+- Sık kullanılan işlemler tek ve tutarlı bir üst araç alanında toplandı.
+- Seçili kayıt için kayıt bütünlüğü yüzdesi ve eksik bölüm önerileri sunan Akıllı Öneriler paneli.
+- Yeni uygulama kimliği, açılış ekranı ve Hakkında penceresi.
+- Komut paletine Hakkında komutu eklendi.
+
+Kararlılık
+- Mevcut SQLite veritabanı yapısı değiştirilmedi.
+- 1.14.0 verileri ve bütün önceki modüller korunur.
+- Windows 7 SP1 x64 ve PyInstaller iş akışı hedeflenmeye devam eder.
+
+Bu paket Release Candidate sürümüdür. Gerçek arşivle kullanmadan önce yedek alınması önerilir.

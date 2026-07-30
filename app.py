@@ -10,6 +10,7 @@ from fitopatoloji.common import APP_NAME, APP_VERSION, AppPaths, resource_path, 
 from fitopatoloji.database import Database
 from fitopatoloji.main_window import MainWindow
 from fitopatoloji.selftest import self_test
+from fitopatoloji.rc_shell import SplashScreen
 
 
 def install_exception_handler(root, paths):
@@ -49,6 +50,20 @@ def main():
 
     app = MainWindow(paths, db)
     install_exception_handler(app, paths)
+    try:
+        app.withdraw()
+        splash = SplashScreen(app)
+        def finish_startup():
+            try:
+                splash.progress.stop()
+                splash.destroy()
+            except Exception:
+                pass
+            app.deiconify()
+            app.lift()
+        app.after(1150, finish_startup)
+    except Exception:
+        app.deiconify()
     app.mainloop()
     return 0
 

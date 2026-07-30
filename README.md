@@ -1,11 +1,20 @@
-# Fitopatoloji Arşivi
+# Fitopatoloji Arşivi 2.0 RC1
 
-Windows 7 SP1 64 bit hedefli, tamamen yerel çalışan fitopatoloji kayıt uygulaması.
+Windows 7 SP1 64 bit hedefli, tamamen yerel çalışan fitopatoloji kayıt ve bilimsel çalışma uygulaması.
 
-Teknoloji: Python 3.8.10, Tkinter, SQLite ve PyInstaller. Hedef bilgisayarda Python veya SQLite kurulumu gerekmez.
+Teknoloji: Python 3.8, Tkinter, SQLite ve PyInstaller. Hedef bilgisayarda Python veya SQLite kurulumu gerekmez.
 
-## Bulutta derleme
+## 2.0 RC1 yenilikleri
 
-GitHub deposunda **Actions** sekmesine girin, **Windows 7 x64 uygulamasini derle** iş akışını seçin ve **Run workflow** düğmesine basın. Başarılı çalışmanın altındaki artifact bölümünden `FitopatolojiArsivi-Win7-x64` paketini indirin.
+- DOSYA, KAYIT, FOTOĞRAF, ANALİZ ve YARDIM sekmeli yeni komut şeridi
+- Seçili kayıt için kayıt bütünlüğü ve eksik bilgi önerileri
+- Yeni açılış ekranı ve Hakkında penceresi
+- Mevcut fotoğraf, rapor, monografi, çalışma alanı, bilgi ağı ve bakım araçlarıyla bütünleşik kullanım
 
-İş akışı derlemeden önce 283 başlangıç kaydını, kayıt ekleme-güncelleme-silme işlemlerini ve SQLite yedeklemeyi otomatik test eder.
+## GitHub Actions ile derleme
+
+GitHub deposunda **Actions** sekmesine girin, **Fitopatoloji Arsivi 2.0 RC1 derle** iş akışını seçin ve **Run workflow** düğmesine basın. Başarılı çalışmanın artifact bölümünden `FitopatolojiArsivi-2.0-RC1-Windows` paketini indirin.
+
+İş akışı önce bütün Python modüllerini derleme kontrolünden geçirir, ardından veritabanı CRUD, gelişmiş arama, teşhis ve SQLite yedekleme self-testlerini çalıştırır.
+
+> Bu sürüm Release Candidate niteliğindedir. Gerçek arşivle kullanmadan önce mevcut `Data`, `Images`, `Documents` ve `Backups` klasörlerinizi yedekleyin.

@@ -13,6 +13,7 @@ from .monograph import MonographBuilder
 from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
 from .maintenance import MaintenanceCenter, SettingsDialog, SettingsStore, HelpCenter
+from .rc_shell import RibbonBar, ContextPanel, AboutDialog
 
 class MainWindow(tk.Tk):
     def __init__(self, paths, database):
@@ -64,6 +65,9 @@ class MainWindow(tk.Tk):
 
     def open_help(self):
         HelpCenter(self)
+
+    def open_about(self):
+        AboutDialog(self)
 
     def open_dashboard(self):
         try:
@@ -131,6 +135,7 @@ class MainWindow(tk.Tk):
             ("maintenance", "Bakım ve tanılama merkezini aç", "Veritabanı sağlığı", self.open_maintenance),
             ("settings", "Ayarlar merkezini aç", "Uygulama tercihleri", self.open_settings),
             ("help", "Yardım merkezini aç", "Kullanım ve kısayollar", self.open_help),
+            ("about", "Fitopatoloji Arşivi hakkında", "Sürüm ve uygulama bilgisi", self.open_about),
         ]
         def fill(*_args):
             text=query.get().strip().lower(); tree.delete(*tree.get_children())
@@ -207,7 +212,23 @@ class MainWindow(tk.Tk):
         content = ttk.Frame(shell)
         content.pack(side="left", fill="both", expand=True)
 
-        header = ttk.Frame(content, style="Header.TFrame", padding=(18, 12))
+        ribbon_commands = {
+            "new": self.new_record, "edit": self.edit_record, "file": self.open_disease_file,
+            "pdf": self.export_pdf_report, "excel": self.export_excel, "monograph": self.open_monograph,
+            "backup": self.create_backup, "maintenance": self.open_maintenance,
+            "preview": self.preview_record, "history": self.open_history, "favorite": self.toggle_favorite,
+            "previous": self.previous_record, "next": self.next_record, "filter": self.open_advanced_filter,
+            "bulk": self.bulk_actions, "trash": self.open_trash, "photos": self.open_photo_manager,
+            "add_photo": self.add_photo, "gallery": self.open_gallery, "knowledge": self.open_knowledge_center,
+            "compare": self.open_comparison, "diagnose": self.open_diagnosis_wizard,
+            "dashboard": self.open_dashboard, "workspace": self.open_workspace, "statistics": self.open_statistics,
+            "help": self.open_help, "settings": self.open_settings, "about": self.open_about,
+            "palette": self.open_command_palette,
+        }
+        self.ribbon = RibbonBar(content, ribbon_commands)
+        self.ribbon.pack(fill="x")
+
+        header = ttk.Frame(content, style="Header.TFrame", padding=(18, 10))
         header.pack(fill="x")
         title_box = ttk.Frame(header, style="Header.TFrame")
         title_box.pack(side="left", fill="x", expand=True)
@@ -226,8 +247,12 @@ class MainWindow(tk.Tk):
         paned.pack(fill="both", expand=True)
         left = ttk.Frame(paned, style="Surface.TFrame", padding=10)
         right = ttk.Frame(paned, style="Surface.TFrame", padding=12)
+        insight_host = ttk.Frame(paned, style="Surface.TFrame")
         paned.add(left, weight=2)
         paned.add(right, weight=5)
+        paned.add(insight_host, weight=1)
+        self.context_panel = ContextPanel(insight_host, self.db, {"edit": self.edit_record, "preview": self.preview_record})
+        self.context_panel.pack(fill="both", expand=True)
 
         ttk.Label(left, text="Kayıtlar", style="Section.TLabel").pack(anchor="w", pady=(0, 8))
         search_card = ttk.Frame(left, style="Surface.TFrame")
@@ -491,6 +516,10 @@ class MainWindow(tk.Tk):
         self.header_disease.set(record["disease_name"])
         self.header_group.set(("★ " if record["favorite"] else "") + record["group_name"])
         self.refresh_summary_card(record)
+        try:
+            self.context_panel.show_record(record)
+        except Exception:
+            pass
         rich_map = self.db.rich_text(disease_id)
         for field, text_widget in self.detail_texts.items():
             text_widget.configure(state="normal")
@@ -505,6 +534,10 @@ class MainWindow(tk.Tk):
         self.header_scientific.set("Kayıt bulunamadı")
         self.header_disease.set("")
         self.header_group.set("")
+        try:
+            self.context_panel.clear()
+        except Exception:
+            pass
         self.summary_photo = None
         if self.summary_photo_label:
             self.summary_photo_label.configure(image="", text="Ana fotoğraf yok")

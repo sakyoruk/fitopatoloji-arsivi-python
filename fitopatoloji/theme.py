@@ -68,4 +68,18 @@ def apply_theme(root):
     style.configure("TLabelframe.Label", background=COLORS["surface"], foreground=COLORS["text"], font=("Segoe UI", 9, "bold"))
     style.configure("Status.TLabel", background=COLORS["nav"], foreground="#dfe9f0", padding=(10, 5))
     style.configure("Horizontal.TPanedwindow", background=COLORS["bg"])
+
+    style.configure("Ribbon.TFrame", background=COLORS["surface_alt"])
+    style.configure("Ribbon.TNotebook", background=COLORS["surface_alt"], borderwidth=0)
+    style.configure("Ribbon.TNotebook.Tab", padding=(15, 7), background=COLORS["surface_alt"], foreground=COLORS["muted"], font=("Segoe UI", 8, "bold"))
+    style.map("Ribbon.TNotebook.Tab", background=[("selected", COLORS["surface"]), ("active", "#e1e9ef")], foreground=[("selected", COLORS["primary"])])
+    style.configure("Ribbon.TButton", padding=(9, 7), background=COLORS["surface_alt"], foreground=COLORS["text"], borderwidth=0)
+    style.map("Ribbon.TButton", background=[("active", "#dce7ed"), ("pressed", "#cfdee6")])
+    style.configure("RibbonPrimary.TButton", padding=(10, 7), background=COLORS["accent"], foreground=COLORS["primary"], borderwidth=0)
+    style.map("RibbonPrimary.TButton", background=[("active", "#cde4dc"), ("pressed", "#bddacf")])
+    style.configure("RibbonGroup.TLabel", background=COLORS["surface_alt"], foreground=COLORS["muted"], font=("Segoe UI", 7), anchor="center")
+    style.configure("Eyebrow.TLabel", background=COLORS["surface"], foreground=COLORS["primary"], font=("Segoe UI", 8, "bold"))
+    style.configure("ContextTitle.TLabel", background=COLORS["surface"], foreground=COLORS["text"], font=("Segoe UI", 12, "bold"))
+    style.configure("Score.TLabel", background=COLORS["surface"], foreground=COLORS["primary"], font=("Segoe UI", 10, "bold"))
+    style.configure("AboutTitle.TLabel", background=COLORS["surface"], foreground=COLORS["text"], font=("Segoe UI", 18, "bold"))
     return style
