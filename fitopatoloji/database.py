@@ -86,6 +86,22 @@ class Database(object):
                 updated_at TEXT NOT NULL,
                 FOREIGN KEY(attachment_id) REFERENCES attachments(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS disease_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, disease_id INTEGER NOT NULL,
+                snapshot_json TEXT NOT NULL, rich_json TEXT NOT NULL DEFAULT '{}',
+                changed_fields TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_history_disease ON disease_history(disease_id, created_at DESC);
+            CREATE TABLE IF NOT EXISTS disease_drafts (
+                draft_key TEXT PRIMARY KEY, disease_id INTEGER, data_json TEXT NOT NULL,
+                rich_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS disease_tags (
+                disease_id INTEGER NOT NULL, tag TEXT NOT NULL,
+                PRIMARY KEY(disease_id, tag),
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE
+            );
             """
         )
         disease_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(diseases)").fetchall()]
@@ -94,6 +110,7 @@ class Database(object):
             ("distribution_world", "TEXT NOT NULL DEFAULT ''"),
             ("climate_notes", "TEXT NOT NULL DEFAULT ''"),
             ("favorite", "INTEGER NOT NULL DEFAULT 0"),
+            ("deleted_at", "TEXT NOT NULL DEFAULT ''"),
         ]:
             if column_name not in disease_columns:
                 self.conn.execute("ALTER TABLE diseases ADD COLUMN {} {}".format(column_name, definition))
@@ -136,11 +153,11 @@ class Database(object):
         self.conn.commit()
 
     def count(self):
-        return self.conn.execute("SELECT COUNT(*) FROM diseases").fetchone()[0]
+        return self.conn.execute("SELECT COUNT(*) FROM diseases WHERE COALESCE(deleted_at, '')=''").fetchone()[0]
 
     def list_groups(self):
         return [row[0] for row in self.conn.execute(
-            "SELECT DISTINCT group_name FROM diseases WHERE group_name <> '' ORDER BY group_name COLLATE NOCASE"
+            "SELECT DISTINCT group_name FROM diseases WHERE group_name <> '' AND COALESCE(deleted_at, '')='' ORDER BY group_name COLLATE NOCASE"
         ).fetchall()]
 
     def search(self, query="", group_name="", host="", organ="", symptom="", favorites_only=False):
@@ -150,7 +167,7 @@ class Database(object):
         organ = (organ or "").strip()
         symptom = (symptom or "").strip()
         favorites_only = bool(favorites_only)
-        clauses = []
+        clauses = ["COALESCE(deleted_at, '') = ''"]
         params = []
 
         if favorites_only:
@@ -286,7 +303,7 @@ class Database(object):
         return results[:100]
 
     def get(self, disease_id):
-        return self.conn.execute("SELECT * FROM diseases WHERE id = ?", (disease_id,)).fetchone()
+        return self.conn.execute("SELECT * FROM diseases WHERE id = ? AND COALESCE(deleted_at, '')=''", (disease_id,)).fetchone()
 
     def add(self, data):
         now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -300,6 +317,11 @@ class Database(object):
         return cur.lastrowid
 
     def update(self, disease_id, data):
+        current = self.get(disease_id)
+        if current:
+            before = dict(current)
+            changed = [f for f in ALL_DB_FIELDS if f in before and str(before.get(f, "")) != str(data.get(f, before.get(f, "")))]
+            self._save_history(disease_id, before, self.rich_text(disease_id), changed)
         now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         fields = [f for f in ALL_DB_FIELDS if f not in ("id", "created_at", "updated_at")]
         assignments = ", ".join([f + " = ?" for f in fields])
@@ -310,9 +332,62 @@ class Database(object):
         )
         self.conn.commit()
 
-    def delete(self, disease_id):
-        self.conn.execute("DELETE FROM diseases WHERE id = ?", (disease_id,))
+    def _save_history(self, disease_id, snapshot, rich_data=None, changed_fields=None):
+        now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute("INSERT INTO disease_history(disease_id,snapshot_json,rich_json,changed_fields,created_at) VALUES(?,?,?,?,?)",
+            (disease_id, json.dumps(snapshot, ensure_ascii=False), json.dumps(rich_data or {}, ensure_ascii=False), ", ".join(changed_fields or []), now))
         self.conn.commit()
+
+    def history(self, disease_id):
+        return self.conn.execute("SELECT * FROM disease_history WHERE disease_id=? ORDER BY id DESC", (disease_id,)).fetchall()
+
+    def restore_history(self, history_id):
+        row = self.conn.execute("SELECT * FROM disease_history WHERE id=?", (history_id,)).fetchone()
+        if not row: return False
+        data = json.loads(row["snapshot_json"]); disease_id = row["disease_id"]
+        current = self.get(disease_id)
+        if current: self._save_history(disease_id, dict(current), self.rich_text(disease_id), ["geri yükleme öncesi"])
+        fields=[f for f in ALL_DB_FIELDS if f not in ("id","created_at","updated_at")]
+        vals=[data.get(f, 0 if f=="favorite" else "") for f in fields]
+        self.conn.execute("UPDATE diseases SET "+", ".join(f+"=?" for f in fields)+", updated_at=? WHERE id=?", vals+[dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),disease_id])
+        self.save_rich_text(disease_id, json.loads(row["rich_json"] or "{}")); self.conn.commit(); return True
+
+    def delete(self, disease_id):
+        self.conn.execute("UPDATE diseases SET deleted_at=?, updated_at=? WHERE id=?", (dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), disease_id))
+        self.conn.commit()
+
+    def trash(self):
+        return self.conn.execute("SELECT * FROM diseases WHERE COALESCE(deleted_at,'')<>'' ORDER BY deleted_at DESC").fetchall()
+
+    def restore_from_trash(self, disease_id):
+        self.conn.execute("UPDATE diseases SET deleted_at='', updated_at=? WHERE id=?", (dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), disease_id)); self.conn.commit()
+
+    def permanent_delete(self, disease_id):
+        self.conn.execute("DELETE FROM diseases WHERE id=?", (disease_id,)); self.conn.commit()
+
+    def save_draft(self, draft_key, disease_id, data, rich_data):
+        now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute("INSERT OR REPLACE INTO disease_drafts(draft_key,disease_id,data_json,rich_json,updated_at) VALUES(?,?,?,?,?)", (draft_key,disease_id,json.dumps(data,ensure_ascii=False),json.dumps(rich_data or {},ensure_ascii=False),now)); self.conn.commit()
+
+    def get_draft(self, draft_key):
+        row=self.conn.execute("SELECT * FROM disease_drafts WHERE draft_key=?",(draft_key,)).fetchone()
+        if not row:return None
+        return {"data":json.loads(row["data_json"]),"rich":json.loads(row["rich_json"] or "{}"),"updated_at":row["updated_at"]}
+
+    def delete_draft(self, draft_key):
+        self.conn.execute("DELETE FROM disease_drafts WHERE draft_key=?",(draft_key,)); self.conn.commit()
+
+    def tags(self, disease_id):
+        return [r[0] for r in self.conn.execute("SELECT tag FROM disease_tags WHERE disease_id=? ORDER BY tag COLLATE NOCASE",(disease_id,)).fetchall()]
+
+    def save_tags(self, disease_id, tags):
+        self.conn.execute("DELETE FROM disease_tags WHERE disease_id=?",(disease_id,))
+        for tag in sorted(set(t.strip() for t in tags if t.strip()), key=str.lower): self.conn.execute("INSERT INTO disease_tags(disease_id,tag) VALUES(?,?)",(disease_id,tag))
+        self.conn.commit()
+
+    def add_tags_bulk(self, disease_ids, tags):
+        for disease_id in disease_ids:
+            current=self.tags(disease_id); self.save_tags(disease_id,current+list(tags))
 
     def attachments(self, disease_id):
         return self.conn.execute(
@@ -552,11 +627,11 @@ class Database(object):
                 TRIM(disease_cycle)<>'' AND TRIM(epidemiology)<>'' AND TRIM(differential_diagnosis)<>'' AND
                 TRIM(cultural_control)<>'' AND TRIM(biological_control)<>'' AND TRIM(chemical_control)<>'' AND
                 TRIM(sources)<>'' THEN 1 ELSE 0 END) AS complete
-            FROM diseases
+            FROM diseases WHERE COALESCE(deleted_at,'')=''
         """).fetchone()
         no_photo = self.conn.execute("""
             SELECT COUNT(*) FROM diseases d
-            WHERE NOT EXISTS (SELECT 1 FROM attachments a WHERE a.disease_id=d.id AND a.file_type='image')
+            WHERE COALESCE(d.deleted_at,'')='' AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.disease_id=d.id AND a.file_type='image')
         """).fetchone()[0]
         total = int(row["total"] or 0)
         complete = int(row["complete"] or 0)
@@ -568,22 +643,22 @@ class Database(object):
     def _dashboard_base_sql(self):
         return """SELECT d.*, (SELECT COUNT(*) FROM attachments a
                   WHERE a.disease_id=d.id AND a.file_type='image') AS photo_count
-                  FROM diseases d"""
+                  FROM diseases d WHERE COALESCE(d.deleted_at,'')=''"""
 
     def dashboard_records(self, mode="recent", limit=100):
         where = ""
         if mode == "no_photo":
-            where = " WHERE NOT EXISTS (SELECT 1 FROM attachments a WHERE a.disease_id=d.id AND a.file_type='image')"
-        elif mode == "no_sources": where = " WHERE TRIM(d.sources)=''"
-        elif mode == "no_pathogen": where = " WHERE TRIM(d.scientific_name)=''"
-        elif mode == "no_symptoms": where = " WHERE TRIM(d.symptoms)=''"
-        elif mode == "favorites": where = " WHERE d.favorite=1"
+            where = " AND COALESCE(d.deleted_at,'')='' AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.disease_id=d.id AND a.file_type='image')"
+        elif mode == "no_sources": where = " AND TRIM(d.sources)=''"
+        elif mode == "no_pathogen": where = " AND TRIM(d.scientific_name)=''"
+        elif mode == "no_symptoms": where = " AND TRIM(d.symptoms)=''"
+        elif mode == "favorites": where = " AND d.favorite=1"
         complete_condition = """TRIM(d.scientific_name)<>'' AND TRIM(d.disease_name)<>'' AND TRIM(d.hosts)<>'' AND
             TRIM(d.affected_organs)<>'' AND TRIM(d.symptoms)<>'' AND TRIM(d.pathogen_features)<>'' AND
             TRIM(d.disease_cycle)<>'' AND TRIM(d.epidemiology)<>'' AND TRIM(d.differential_diagnosis)<>'' AND
             TRIM(d.cultural_control)<>'' AND TRIM(d.biological_control)<>'' AND TRIM(d.chemical_control)<>'' AND TRIM(d.sources)<>''"""
-        if mode == "complete": where = " WHERE " + complete_condition
-        elif mode == "incomplete": where = " WHERE NOT (" + complete_condition + ")"
+        if mode == "complete": where = " AND " + complete_condition
+        elif mode == "incomplete": where = " AND NOT (" + complete_condition + ")"
         order = " ORDER BY d.updated_at DESC, d.scientific_name COLLATE NOCASE"
         return self.conn.execute(self._dashboard_base_sql()+where+order+" LIMIT ?", (int(limit),)).fetchall()
 
@@ -598,7 +673,7 @@ class Database(object):
         clause = " OR ".join(field+" LIKE ?" for field in fields)
         clause += " OR EXISTS (SELECT 1 FROM attachments ax WHERE ax.disease_id=d.id AND (ax.title LIKE ? OR ax.description LIKE ? OR ax.source LIKE ? OR ax.relative_path LIKE ?))"
         params = [like]*len(fields) + [like]*4 + [int(limit)]
-        sql = self._dashboard_base_sql()+" WHERE ("+clause+") ORDER BY d.updated_at DESC LIMIT ?"
+        sql = self._dashboard_base_sql()+" AND ("+clause+") ORDER BY d.updated_at DESC LIMIT ?"
         return self.conn.execute(sql, params).fetchall()
 
     def backup_to(self, destination_db):

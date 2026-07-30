@@ -1,0 +1,8 @@
+Fitopatoloji Arşivi 1.9.0
+
+- Her hastalık için otomatik sürüm geçmişi ve eski sürüme geri dönüş
+- Düzenleme sırasında otomatik taslak kaydı ve çökme sonrası kurtarma
+- Güvenli silme: Çöp Kutusu, geri yükleme ve kalıcı silme
+- Virgülle ayrılmış kullanıcı etiketleri
+- Ctrl ile çoklu kayıt seçimi ve toplu etiket/favori işlemleri
+- Veri tabanı yapısı eski arşivlerle otomatik uyumludur

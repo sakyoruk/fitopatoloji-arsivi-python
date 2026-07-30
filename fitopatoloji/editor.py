@@ -12,7 +12,7 @@ class DiseaseEditor(tk.Toplevel):
         "sources",
     ]
 
-    def __init__(self, master, groups, initial=None, rich_initial=None, on_save=None):
+    def __init__(self, master, groups, initial=None, rich_initial=None, on_save=None, on_draft=None, draft_key=None, on_saved=None):
         tk.Toplevel.__init__(self, master)
         self.title("Kayıt düzenle" if initial else "Yeni kayıt")
         self.transient(master)
@@ -20,6 +20,10 @@ class DiseaseEditor(tk.Toplevel):
         self.initial = dict(initial) if initial else {}
         self.on_save = on_save
         self.rich_initial = rich_initial or {}
+        self.on_draft = on_draft
+        self.draft_key = draft_key
+        self.on_saved = on_saved
+        self._draft_job = None
         self.vars = {}
         self.texts = {}
         self.dirty = False
@@ -104,6 +108,9 @@ class DiseaseEditor(tk.Toplevel):
                 entry.grid(row=row, column=1, sticky="ew", pady=5)
                 self.vars[field] = var
             row += 1
+        ttk.Label(basic, text="Etiketler").grid(row=row, column=0, sticky="w", pady=5)
+        self.vars["_tags"] = tk.StringVar(value=self.initial.get("_tags", "") or "")
+        ttk.Entry(basic, textvariable=self.vars["_tags"]).grid(row=row, column=1, sticky="ew", pady=5)
 
         for frame, fields in [
             (biology, [("symptoms", "Belirtiler  •"), ("pathogen_features", "Etmenin özellikleri  •"), ("disease_cycle", "Hastalık döngüsü"), ("epidemiology", "Epidemiyoloji / uygun çevre koşulları  •"), ("differential_diagnosis", "Ayırıcı teşhis  •")]),
@@ -141,8 +148,21 @@ class DiseaseEditor(tk.Toplevel):
         if self._loading:
             return
         self.dirty = True
-        self.change_var.set("Kaydedilmemiş değişiklikler var")
+        self.change_var.set("Kaydedilmemiş değişiklikler var • Taslak hazırlanıyor")
         self.update_completion()
+        if self.on_draft:
+            if self._draft_job:
+                try: self.after_cancel(self._draft_job)
+                except Exception: pass
+            self._draft_job = self.after(1200, self._autosave_draft)
+
+
+    def _autosave_draft(self):
+        self._draft_job = None
+        if not self.dirty or not self.on_draft: return
+        data = self._collect(); rich = data.pop("_rich_text", {})
+        self.on_draft(self.draft_key, data, rich)
+        self.change_var.set("Taslak otomatik kaydedildi")
 
     def _collect(self):
         data = {field: var.get().strip() for field, var in self.vars.items()}
@@ -186,6 +206,7 @@ class DiseaseEditor(tk.Toplevel):
             return False
         if self.on_save:
             self.on_save(data)
+        if self.on_saved: self.on_saved(self.draft_key)
         self.dirty = False
         self.change_var.set("Kayıt kaydedildi")
         if close_after:

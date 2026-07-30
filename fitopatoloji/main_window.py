@@ -71,7 +71,7 @@ class MainWindow(tk.Tk):
         query = tk.StringVar()
         frame = ttk.Frame(dialog, padding=14); frame.pack(fill="both", expand=True)
         entry = ttk.Entry(frame, textvariable=query, font=("Segoe UI", 11)); entry.pack(fill="x")
-        tree = ttk.Treeview(frame, columns=("hint",), show="tree headings", selectmode="browse")
+        tree = ttk.Treeview(frame, columns=("hint",), show="tree headings", selectmode="extended")
         tree.heading("#0", text="Komut"); tree.heading("hint", text="İşlem")
         tree.column("#0", width=280); tree.column("hint", width=170)
         tree.pack(fill="both", expand=True, pady=(10, 0))
@@ -131,6 +131,9 @@ class MainWindow(tk.Tk):
         ttk.Button(nav, text="✎  Kaydı düzenle", style="Nav.TButton", command=self.edit_record).pack(fill="x")
         ttk.Button(nav, text="▤  İncele", style="Nav.TButton", command=self.preview_record).pack(fill="x")
         ttk.Button(nav, text="★  Favori", style="Nav.TButton", command=self.toggle_favorite).pack(fill="x")
+        ttk.Button(nav, text="◷  Kayıt geçmişi", style="Nav.TButton", command=self.open_history).pack(fill="x")
+        ttk.Button(nav, text="♲  Çöp kutusu", style="Nav.TButton", command=self.open_trash).pack(fill="x")
+        ttk.Button(nav, text="✓  Toplu işlemler", style="Nav.TButton", command=self.bulk_actions).pack(fill="x")
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
         ttk.Button(nav, text="⌕  Gelişmiş filtre", style="Nav.TButton", command=self.open_advanced_filter).pack(fill="x")
         ttk.Button(nav, text="✓  Teşhis sihirbazı", style="Nav.TButton", command=self.open_diagnosis_wizard).pack(fill="x")
@@ -207,6 +210,7 @@ class MainWindow(tk.Tk):
         record_actions.pack(side="right")
         ttk.Button(record_actions, text="İncele", style="Primary.TButton", command=self.preview_record).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Düzenle", command=self.edit_record).pack(side="left", padx=(0, 5))
+        ttk.Button(record_actions, text="Geçmiş", command=self.open_history).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Sil", style="Danger.TButton", command=self.delete_record).pack(side="left")
 
         notebook = ttk.Notebook(right)
@@ -456,13 +460,15 @@ class MainWindow(tk.Tk):
         self.refresh_photo_catalog()
 
     def new_record(self):
-        groups = self.db.list_groups()
-        DiseaseEditor(self, groups, on_save=self._save_new)
+        groups = self.db.list_groups(); key="new"
+        draft=self.db.get_draft(key); initial=None; rich=None
+        if draft and messagebox.askyesno(APP_NAME, "{} tarihli kaydedilmemiş yeni kayıt taslağı bulundu. Kurtarılsın mı?".format(draft["updated_at"]), parent=self): initial=draft["data"]; rich=draft["rich"]
+        DiseaseEditor(self, groups, initial=initial, rich_initial=rich, on_save=self._save_new, on_draft=self.db.save_draft, draft_key=key, on_saved=self.db.delete_draft)
 
     def _save_new(self, data):
-        rich_data = data.pop("_rich_text", {})
+        rich_data = data.pop("_rich_text", {}); tags=[x.strip() for x in data.pop("_tags", "").replace(";", ",").split(",") if x.strip()]
         new_id = self.db.add(data)
-        self.db.save_rich_text(new_id, rich_data)
+        self.db.save_rich_text(new_id, rich_data); self.db.save_tags(new_id, tags)
         self.refresh_groups()
         self.refresh_list(select_id=new_id)
 
@@ -479,14 +485,16 @@ class MainWindow(tk.Tk):
         if not self.selected_id:
             messagebox.showinfo(APP_NAME, "Önce bir kayıt seçin.", parent=self)
             return
-        record = self.db.get(self.selected_id)
-        groups = self.db.list_groups()
-        DiseaseEditor(self, groups, initial=record, rich_initial=self.db.rich_text(self.selected_id), on_save=self._save_edit)
+        record = dict(self.db.get(self.selected_id)); record["_tags"] = ", ".join(self.db.tags(self.selected_id))
+        groups = self.db.list_groups(); key="edit:{}".format(self.selected_id)
+        rich=self.db.rich_text(self.selected_id); draft=self.db.get_draft(key)
+        if draft and messagebox.askyesno(APP_NAME, "{} tarihli kaydedilmemiş taslak bulundu. Kurtarılsın mı?".format(draft["updated_at"]), parent=self): record=draft["data"]; rich=draft["rich"]
+        DiseaseEditor(self, groups, initial=record, rich_initial=rich, on_save=self._save_edit, on_draft=self.db.save_draft, draft_key=key, on_saved=self.db.delete_draft)
 
     def _save_edit(self, data):
-        rich_data = data.pop("_rich_text", {})
+        rich_data = data.pop("_rich_text", {}); tags=[x.strip() for x in data.pop("_tags", "").replace(";", ",").split(",") if x.strip()]
         self.db.update(self.selected_id, data)
-        self.db.save_rich_text(self.selected_id, rich_data)
+        self.db.save_rich_text(self.selected_id, rich_data); self.db.save_tags(self.selected_id, tags)
         self.refresh_groups()
         self.refresh_list(select_id=self.selected_id)
 
@@ -496,7 +504,7 @@ class MainWindow(tk.Tk):
         record = self.db.get(self.selected_id)
         answer = messagebox.askyesno(
             APP_NAME,
-            "'{}' kaydı ve bağlı dosyaları veritabanından silinsin mi?\n\nDosyaların kopyaları klasörde kalır.".format(record["scientific_name"]),
+            "'{}' kaydı Çöp Kutusu'na taşınsın mı?\n\nKayıt daha sonra geri yüklenebilir.".format(record["scientific_name"]),
             parent=self,
         )
         if answer:
@@ -504,6 +512,46 @@ class MainWindow(tk.Tk):
             self.selected_id = None
             self.refresh_groups()
             self.refresh_list()
+
+    def open_history(self):
+        if not self.selected_id: messagebox.showinfo(APP_NAME,"Önce bir kayıt seçin.",parent=self); return
+        win=tk.Toplevel(self); win.title("Kayıt geçmişi"); win.geometry("780x480"); win.transient(self)
+        tree=ttk.Treeview(win,columns=("date","fields"),show="headings"); tree.heading("date",text="Tarih"); tree.heading("fields",text="Değişen alanlar"); tree.column("date",width=160); tree.column("fields",width=560); tree.pack(fill="both",expand=True,padx=12,pady=12)
+        for r in self.db.history(self.selected_id): tree.insert("","end",iid=str(r["id"]),values=(r["created_at"],r["changed_fields"] or "Önceki sürüm"))
+        def restore():
+            sel=tree.selection()
+            if not sel:return
+            if messagebox.askyesno(APP_NAME,"Seçili eski sürüm geri yüklensin mi? Mevcut sürüm de geçmişe kaydedilecektir.",parent=win): self.db.restore_history(int(sel[0])); self.refresh_list(select_id=self.selected_id); win.destroy()
+        ttk.Button(win,text="Seçili sürümü geri yükle",style="Primary.TButton",command=restore).pack(pady=(0,12))
+
+    def open_trash(self):
+        win=tk.Toplevel(self); win.title("Çöp Kutusu"); win.geometry("760x480"); win.transient(self)
+        tree=ttk.Treeview(win,columns=("name","disease","date"),show="headings",selectmode="extended"); [tree.heading(c,text=t) for c,t in (("name","Etmen"),("disease","Hastalık"),("date","Silinme tarihi"))]; tree.pack(fill="both",expand=True,padx=12,pady=12)
+        def fill():
+            tree.delete(*tree.get_children())
+            for r in self.db.trash(): tree.insert("","end",iid=str(r["id"]),values=(r["scientific_name"],r["disease_name"],r["deleted_at"]))
+        def restore():
+            for i in tree.selection(): self.db.restore_from_trash(int(i))
+            fill(); self.refresh_groups(); self.refresh_list()
+        def purge():
+            ids=tree.selection()
+            if ids and messagebox.askyesno(APP_NAME,"Seçili kayıtlar kalıcı olarak silinsin mi? Bu işlem geri alınamaz.",parent=win):
+                for i in ids:self.db.permanent_delete(int(i))
+                fill()
+        bar=ttk.Frame(win); bar.pack(fill="x",padx=12,pady=(0,12)); ttk.Button(bar,text="Geri yükle",style="Primary.TButton",command=restore).pack(side="left"); ttk.Button(bar,text="Kalıcı sil",style="Danger.TButton",command=purge).pack(side="right"); fill()
+
+    def bulk_actions(self):
+        ids=[int(i) for i in self.tree.selection()]
+        if not ids: messagebox.showinfo(APP_NAME,"Listeden bir veya daha fazla kayıt seçin. Çoklu seçim için Ctrl tuşunu kullanın.",parent=self); return
+        win=tk.Toplevel(self); win.title("Toplu işlemler"); win.geometry("440x260"); win.transient(self); frame=ttk.Frame(win,padding=16); frame.pack(fill="both",expand=True)
+        ttk.Label(frame,text="{} kayıt seçildi".format(len(ids)),font=("Segoe UI",11,"bold")).pack(anchor="w")
+        tag=tk.StringVar(); ttk.Label(frame,text="Eklenecek etiketler (virgülle):").pack(anchor="w",pady=(16,4)); ttk.Entry(frame,textvariable=tag).pack(fill="x")
+        def add_tags(): self.db.add_tags_bulk(ids,[x.strip() for x in tag.get().replace(";",",").split(",") if x.strip()]); messagebox.showinfo(APP_NAME,"Etiketler eklendi.",parent=win); win.destroy()
+        def favorite(value):
+            for i in ids:
+                r=dict(self.db.get(i)); r["favorite"]=value; self.db.update(i,r)
+            self.refresh_list(); win.destroy()
+        ttk.Button(frame,text="Etiketleri ekle",style="Primary.TButton",command=add_tags).pack(fill="x",pady=(12,4)); ttk.Button(frame,text="Favorilere ekle",command=lambda:favorite(1)).pack(fill="x",pady=4); ttk.Button(frame,text="Favorilerden çıkar",command=lambda:favorite(0)).pack(fill="x",pady=4)
 
     def refresh_attachments(self):
         for item in self.attach_tree.get_children():
