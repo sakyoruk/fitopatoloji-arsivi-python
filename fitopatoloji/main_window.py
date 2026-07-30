@@ -8,6 +8,7 @@ from .photo_manager import PhotoManager, PhotoImportDialog
 from .dashboard import Dashboard
 from .disease_file import DiseaseFile
 from .knowledge_graph import KnowledgeCenter
+from .workspace import Workspace
 from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
 
@@ -43,6 +44,7 @@ class MainWindow(tk.Tk):
         self.thumbnail_items = {}
 
         self.dashboard_window = None
+        self.workspace_window = None
         self.build_ui()
         self.refresh_groups()
         self.refresh_list()
@@ -56,6 +58,16 @@ class MainWindow(tk.Tk):
         except Exception:
             pass
         self.dashboard_window = Dashboard(self, self.db, self.open_record_by_id, self.new_record, self.open_command_palette)
+
+    def open_workspace(self):
+        try:
+            if self.workspace_window and self.workspace_window.winfo_exists():
+                self.workspace_window.lift(); self.workspace_window.focus_force()
+                if self.selected_id: self.workspace_window.open_disease(self.selected_id)
+                return
+        except Exception:
+            pass
+        self.workspace_window = Workspace(self, self.db, self.paths, self.selected_id, self.open_record_by_id, self.edit_record)
 
     def open_record_by_id(self, disease_id):
         self.search_var.set("")
@@ -79,6 +91,7 @@ class MainWindow(tk.Tk):
         tree.pack(fill="both", expand=True, pady=(10, 0))
         commands = [
             ("dashboard", "Çalışma merkezini aç", "Arşiv özeti", self.open_dashboard),
+            ("workspace", "Araştırmacı çalışma alanını aç", "Sekmeler, notlar ve görevler", self.open_workspace),
             ("new", "Yeni hastalık kaydı", "Kayıt oluştur", self.new_record),
             ("edit", "Seçili kaydı düzenle", "Düzenleyici", self.edit_record),
             ("file", "Dijital hastalık dosyasını aç", "Dosya görünümü", self.open_disease_file),
@@ -140,6 +153,7 @@ class MainWindow(tk.Tk):
         ttk.Label(nav, text="ARŞİVİ  •  v{}".format(APP_VERSION), style="NavSub.TLabel").pack(anchor="w", padx=16, pady=(1, 18))
 
         ttk.Button(nav, text="⌂  Çalışma merkezi", style="Nav.TButton", command=self.open_dashboard).pack(fill="x")
+        ttk.Button(nav, text="▦  Çalışma alanı", style="Nav.TButton", command=self.open_workspace).pack(fill="x")
         ttk.Button(nav, text="＋  Yeni kayıt", style="Nav.TButton", command=self.new_record).pack(fill="x")
         ttk.Button(nav, text="✎  Kaydı düzenle", style="Nav.TButton", command=self.edit_record).pack(fill="x")
         ttk.Button(nav, text="▣  Hastalık dosyası", style="Nav.TButton", command=self.open_disease_file).pack(fill="x")

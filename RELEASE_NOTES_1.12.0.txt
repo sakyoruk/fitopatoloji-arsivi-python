@@ -1,0 +1,12 @@
+Fitopatoloji Arşivi 1.12.0 — Araştırmacı Çalışma Alanı
+
+- Aynı anda birden fazla hastalığı sekmelerde açık tutan yeni Çalışma Alanı
+- Açık hastalıklar arasında hızlı geçiş ve Ctrl+W ile sekme kapatma
+- İki hastalığı salt okunur bölünmüş ekranda yan yana inceleme
+- Hastalık kartlarında zengin metin biçimlerinin korunması
+- Uygulama genelinde kalıcı Araştırmacı Not Defteri
+- Hastalığa bağlı veya genel görev oluşturma
+- Görevleri tamamlandı olarak işaretleme, geri alma ve silme
+- Ana ekrana ve Ctrl+K komut paletine Çalışma Alanı erişimi
+- Yeni workspace_notes ve disease_tasks tabloları; eski veritabanları otomatik yükseltilir
+- Windows 7 SP1 x64 ve mevcut arşiv yapısıyla geriye dönük uyumluluk

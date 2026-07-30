@@ -102,6 +102,15 @@ class Database(object):
                 PRIMARY KEY(disease_id, tag),
                 FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS workspace_notes (
+                id INTEGER PRIMARY KEY CHECK (id = 1), note_text TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS disease_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, disease_id INTEGER, task_text TEXT NOT NULL,
+                is_done INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE SET NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_tasks_done ON disease_tasks(is_done, updated_at DESC);
             """
         )
         disease_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(diseases)").fetchall()]
@@ -675,6 +684,31 @@ class Database(object):
         params = [like]*len(fields) + [like]*4 + [int(limit)]
         sql = self._dashboard_base_sql()+" AND ("+clause+") ORDER BY d.updated_at DESC LIMIT ?"
         return self.conn.execute(sql, params).fetchall()
+
+    def workspace_note(self):
+        row = self.conn.execute("SELECT note_text FROM workspace_notes WHERE id=1").fetchone()
+        return row[0] if row else ""
+
+    def save_workspace_note(self, text):
+        now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute("INSERT OR REPLACE INTO workspace_notes(id,note_text,updated_at) VALUES(1,?,?)", (text or "", now))
+        self.conn.commit()
+
+    def tasks(self):
+        return self.conn.execute("""SELECT t.*, d.disease_name FROM disease_tasks t
+            LEFT JOIN diseases d ON d.id=t.disease_id ORDER BY t.is_done ASC, t.updated_at DESC""").fetchall()
+
+    def add_task(self, disease_id, task_text):
+        now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute("INSERT INTO disease_tasks(disease_id,task_text,is_done,created_at,updated_at) VALUES(?,?,0,?,?)",
+                          (disease_id, task_text, now, now)); self.conn.commit()
+
+    def toggle_task(self, task_id):
+        now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute("UPDATE disease_tasks SET is_done=CASE is_done WHEN 0 THEN 1 ELSE 0 END, updated_at=? WHERE id=?", (now, task_id)); self.conn.commit()
+
+    def delete_task(self, task_id):
+        self.conn.execute("DELETE FROM disease_tasks WHERE id=?", (task_id,)); self.conn.commit()
 
     def backup_to(self, destination_db):
         target = sqlite3.connect(destination_db)
