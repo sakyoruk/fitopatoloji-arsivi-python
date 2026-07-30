@@ -169,10 +169,16 @@ class MonographBuilder(tk.Toplevel):
                 if not value and cfg["hide_empty"]:continue
                 body.append('<h3>{}</h3><div>{}</div>'.format(label,to_html(value,rich.get(key,{}))))
             refs=self.db.references(did); all_refs.extend([x["citation"] for x in refs if x["citation"]])
+            linked=self.db.disease_literature(did)
+            for x in linked:
+                citation="{} ({}) {}. {}{}".format(x["authors"],x["year_text"],x["title"],x["journal"],(" DOI: "+x["doi"]) if x["doi"] else "").strip()
+                if citation: all_refs.append(citation)
+            if linked:
+                body.append('<h3>Yapılandırılmış literatür</h3><ol>'+''.join('<li>{}</li>'.format(xml_escape("{} ({}) {}".format(x["authors"],x["year_text"],x["title"]))) for x in linked)+'</ol>')
             if cfg["photos"]:
                 imgs=[]
                 for p in self.db.image_attachments(did):
-                    path=os.path.abspath(os.path.join(self.paths.base,p["relative_path"])); cap=p["title"] or p["description"] or os.path.basename(path)
+                    path=os.path.abspath(os.path.join(self.paths.base,p["relative_path"])); cap=((p["image_category"] or "Genel")+" — "+(p["title"] or p["description"] or os.path.basename(path)))
                     if os.path.isfile(path):imgs.append('<figure><img src="file:///{}"><figcaption>{}</figcaption></figure>'.format(path.replace('\\','/'),xml_escape(cap)))
                 if imgs:body.append('<h3>Fotoğraflar</h3><div class="gallery">'+''.join(imgs)+'</div>')
             body.append('</section>'); chapters.append(''.join(body))
@@ -216,13 +222,19 @@ class MonographBuilder(tk.Toplevel):
                     if not value and cfg['hide_empty']:continue
                     story.extend([Paragraph(label,h2),Paragraph(to_reportlab(value,rich.get(key,{})),normal)])
                 refs=self.db.references(did); all_refs.extend([x['citation'] for x in refs if x['citation']])
+                linked=self.db.disease_literature(did)
+                if linked:
+                    story.append(Paragraph('Yapılandırılmış literatür',h2))
+                    for x in linked:
+                        citation="{} ({}) {}. {}{}".format(x['authors'],x['year_text'],x['title'],x['journal'],(' DOI: '+x['doi']) if x['doi'] else '').strip()
+                        all_refs.append(citation); story.append(Paragraph('• '+xml_escape(citation),normal))
                 if cfg['photos']:
                     cells=[]
                     for p in self.db.image_attachments(did):
                         path=os.path.join(self.paths.base,p['relative_path'])
                         if os.path.isfile(path):
                             try:
-                                im=RLImage(path); im._restrictSize(7.2*cm,5*cm); cap=Paragraph(xml_escape(p['title'] or p['description'] or os.path.basename(path)),ParagraphStyle('cap',parent=normal,fontSize=7,alignment=TA_CENTER)); cells.append([im,cap])
+                                im=RLImage(path); im._restrictSize(7.2*cm,5*cm); cap=Paragraph(xml_escape((p['image_category'] or 'Genel')+' — '+(p['title'] or p['description'] or os.path.basename(path))),ParagraphStyle('cap',parent=normal,fontSize=7,alignment=TA_CENTER)); cells.append([im,cap])
                             except Exception:pass
                     if cells:
                         grid=[]

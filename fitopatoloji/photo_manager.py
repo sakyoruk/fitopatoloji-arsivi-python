@@ -128,6 +128,7 @@ class PhotoManager(tk.Toplevel):
         self.card_widgets = {}
         self.thumb_size = tk.StringVar(value="Orta")
         self.sort_var = tk.StringVar(value="Sıra")
+        self.category_filter = tk.StringVar(value="Tümü")
         self.info_var = tk.StringVar(value="")
         self.title("Fotoğraf yöneticisi")
         self.geometry("1120x720")
@@ -150,6 +151,9 @@ class PhotoManager(tk.Toplevel):
         ttk.Label(toolbar, text="Sırala:").pack(side="left")
         sort = ttk.Combobox(toolbar, textvariable=self.sort_var, values=("Sıra", "Eklenme tarihi", "Dosya adı", "Başlık"), width=15, state="readonly")
         sort.pack(side="left", padx=4); sort.bind("<<ComboboxSelected>>", lambda _e: self.refresh())
+        ttk.Label(toolbar, text="Kategori:").pack(side="left", padx=(10,0))
+        category=ttk.Combobox(toolbar,textvariable=self.category_filter,values=("Tümü","Genel","Saha","Makro","Mikroskop","Laboratuvar","Belirti","Etmen","Mücadele"),width=12,state="readonly")
+        category.pack(side="left",padx=4); category.bind("<<ComboboxSelected>>",lambda _e:self.refresh())
         ttk.Button(toolbar, text="Seçileni sil", command=self.delete_selected).pack(side="right")
 
         paned = ttk.Panedwindow(self, orient="horizontal")
@@ -177,7 +181,9 @@ class PhotoManager(tk.Toplevel):
         self.description_entry = ttk.Entry(form)
         self.date_entry = ttk.Entry(form)
         self.source_entry = ttk.Entry(form)
-        for row, (label, widget) in enumerate((("Başlık", self.title_entry), ("Açıklama", self.description_entry), ("Çekim tarihi", self.date_entry), ("Kaynak / fotoğrafçı", self.source_entry))):
+        self.category_var = tk.StringVar(value="Genel")
+        self.category_combo = ttk.Combobox(form,textvariable=self.category_var,values=("Genel","Saha","Makro","Mikroskop","Laboratuvar","Belirti","Etmen","Mücadele"),state="readonly")
+        for row, (label, widget) in enumerate((("Başlık", self.title_entry), ("Açıklama", self.description_entry), ("Çekim tarihi", self.date_entry), ("Kaynak / fotoğrafçı", self.source_entry), ("Fotoğraf kategorisi", self.category_combo))):
             ttk.Label(form, text=label+":").grid(row=row, column=0, sticky="w", pady=4)
             widget.grid(row=row, column=1, sticky="ew", padx=(8,0), pady=4)
         form.columnconfigure(1, weight=1)
@@ -199,6 +205,7 @@ class PhotoManager(tk.Toplevel):
 
     def _sorted_photos(self):
         rows = list(self.db.image_attachments(self.disease_id))
+        if self.category_filter.get() != "Tümü": rows=[r for r in rows if (r["image_category"] or "Genel") == self.category_filter.get()]
         key = self.sort_var.get()
         if key == "Eklenme tarihi": rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
         elif key == "Dosya adı": rows.sort(key=lambda r: os.path.basename(r["relative_path"]).lower())
@@ -354,7 +361,7 @@ class PhotoManager(tk.Toplevel):
         row=self.selected_row()
         if not row:
             messagebox.showinfo(APP_NAME,"Bilgilerini düzenlemek için tek bir fotoğraf seçin.",parent=self); return
-        self.db.update_attachment_metadata(row["id"],self.title_entry.get(),self.description_entry.get(),self.date_entry.get(),self.source_entry.get())
+        self.db.update_attachment_metadata(row["id"],self.title_entry.get(),self.description_entry.get(),self.date_entry.get(),self.source_entry.get(),self.category_var.get())
         self.refresh()
 
     def make_primary(self):

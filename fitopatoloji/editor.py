@@ -2,6 +2,7 @@
 from .common import *
 from .richtext import RichTextEditor
 from .catalogs import AGENT_GROUPS, TAXON_RANKS, HostCatalog
+from .scientific import scientific_name_suggestion
 
 
 def merge_host_ids(existing, added):
@@ -330,6 +331,12 @@ class DiseaseEditor(tk.Toplevel):
         if not data.get("disease_name"):
             messagebox.showwarning(APP_NAME, "Hastalık adı veya açıklama boş bırakılamaz.", parent=self)
             return False
+        suggested, notes = scientific_name_suggestion(data.get("scientific_name"))
+        if notes and suggested != data.get("scientific_name"):
+            message = "Bilimsel ad için yazım önerisi:\n\n{}\n\n{}\n\nÖneri uygulansın mı?".format("\n".join("• "+x for x in notes), suggested)
+            if messagebox.askyesno(APP_NAME, message, parent=self):
+                data["scientific_name"] = suggested
+                if "scientific_name" in self.vars: self.vars["scientific_name"].set(suggested)
         if self.on_save:
             self.on_save(data)
         if self.on_saved: self.on_saved(self.draft_key)

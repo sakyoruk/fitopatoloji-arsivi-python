@@ -1,0 +1,10 @@
+Fitopatoloji Arşivi 2.0.0 RC7
+
+- Bağımsız Literatür Kataloğu eklendi.
+- Makale, kitap, tez, bildiri, rapor ve web kaynağı türleri desteklendi.
+- Yazar, yıl, başlık, dergi/kitap, cilt, sayı, sayfa, DOI, ISBN, URL, dil, anahtar kelime ve not alanları eklendi.
+- Bir literatür kaydı birden fazla hastalığa bağlanabilir.
+- Hastalık-literatür bağlantıları tekrar kullanılabilir şekilde ayrı tabloda tutulur.
+- Raporlara dahil edilmeyen hastalık bazlı özel bilimsel notlar eklendi.
+- Fotoğraf sınıflandırması için image_category veritabanı alanı eklendi.
+- Veritabanı şeması 20007 sürümüne yükseltildi.

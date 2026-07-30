@@ -1,0 +1,9 @@
+Fitopatoloji Arşivi 2.0.0 RC7.1
+
+- Normalize sinonim tablosu ve sinonimlerle arama
+- Bilimsel isim yazım önerileri
+- Fotoğraf kategori seçimi ve kategori filtresi
+- Dijital monografide yapılandırılmış literatür
+- Fotoğraf kategorilerinin HTML/PDF başlıklarına aktarılması
+- Yazılım Tasarım Dokümanı
+- Şema sürümü 20008

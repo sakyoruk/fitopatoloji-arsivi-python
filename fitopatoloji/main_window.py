@@ -16,6 +16,7 @@ from .maintenance import MaintenanceCenter, SettingsDialog, SettingsStore, HelpC
 from .diagnostics import IssueReportDialog
 from .rc_shell import ContextPanel, AboutDialog
 from .catalogs import TaxonomyCatalog, HostCatalog
+from .literature import LiteratureCatalog, PrivateNoteDialog
 
 class MainWindow(tk.Tk):
     def __init__(self, paths, database):
@@ -76,6 +77,15 @@ class MainWindow(tk.Tk):
 
     def open_taxonomy_catalog(self):
         TaxonomyCatalog(self, self.db)
+
+    def open_literature_catalog(self):
+        LiteratureCatalog(self, self.db, self.selected_id)
+
+    def open_private_notes(self):
+        if not self.selected_id:
+            messagebox.showwarning("Seçim", "Özel not eklemek için bir hastalık seçin.", parent=self); return
+        row=self.db.get(self.selected_id)
+        PrivateNoteDialog(self, self.db, self.selected_id, (row["disease_name"] or row["scientific_name"]) if row else "")
 
     def open_host_catalog(self):
         HostCatalog(self, self.db)
@@ -138,6 +148,7 @@ class MainWindow(tk.Tk):
             ("knowledge", "Bilimsel bilgi ağını aç", "İlişkiler ve indeks", self.open_knowledge_center),
             ("taxonomy", "Taksonomi kataloğunu aç", "Etmen sınıflandırması", self.open_taxonomy_catalog),
             ("hosts", "Konukçu kataloğunu aç", "Yapılandırılmış konukçular", self.open_host_catalog),
+            ("literature", "Literatür kataloğunu aç", "Kaynakları tek merkezde yönet", self.open_literature_catalog),
             ("preview", "Seçili kaydı incele", "Önizleme", self.preview_record),
             ("photos", "Fotoğraf yöneticisini aç", "Görsel katalog", self.open_photo_manager),
             ("compare", "Hastalıkları karşılaştır", "Karşılaştırma", self.open_comparison),
@@ -204,6 +215,7 @@ class MainWindow(tk.Tk):
         ttk.Button(nav, text="▤  Hastalıklar", style="Nav.TButton", command=lambda: self.focus_force()).pack(fill="x")
         ttk.Button(nav, text="⌘  Taksonomi", style="Nav.TButton", command=self.open_taxonomy_catalog).pack(fill="x")
         ttk.Button(nav, text="♧  Konukçular", style="Nav.TButton", command=self.open_host_catalog).pack(fill="x")
+        ttk.Button(nav, text="▥  Literatür", style="Nav.TButton", command=self.open_literature_catalog).pack(fill="x")
         ttk.Button(nav, text="▦  Fotoğraflar", style="Nav.TButton", command=self.open_photo_manager).pack(fill="x")
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
         ttk.Label(nav, text="ÇALIŞMA", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
@@ -212,6 +224,7 @@ class MainWindow(tk.Tk):
         ttk.Button(nav, text="⇄  Karşılaştır", style="Nav.TButton", command=self.open_comparison).pack(fill="x")
         ttk.Button(nav, text="◉  Bilgi ağı", style="Nav.TButton", command=self.open_knowledge_center).pack(fill="x")
         ttk.Button(nav, text="▦  Çalışma alanı", style="Nav.TButton", command=self.open_workspace).pack(fill="x")
+        ttk.Button(nav, text="✎  Özel notlar", style="Nav.TButton", command=self.open_private_notes).pack(fill="x")
         ttk.Button(nav, text="▧  Monografi", style="Nav.TButton", command=self.open_monograph).pack(fill="x")
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
         ttk.Label(nav, text="SİSTEM", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))

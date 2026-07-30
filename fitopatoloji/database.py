@@ -2,7 +2,7 @@
 from .common import *
 
 class Database(object):
-    SCHEMA_VERSION = 20006
+    SCHEMA_VERSION = 20008
 
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
@@ -182,6 +182,41 @@ class Database(object):
                 id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
                 output_path TEXT NOT NULL, disease_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS literature_catalog (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                publication_type TEXT NOT NULL DEFAULT 'Makale',
+                authors TEXT NOT NULL DEFAULT '', year_text TEXT NOT NULL DEFAULT '',
+                title TEXT NOT NULL DEFAULT '', journal TEXT NOT NULL DEFAULT '',
+                volume TEXT NOT NULL DEFAULT '', issue TEXT NOT NULL DEFAULT '', pages TEXT NOT NULL DEFAULT '',
+                doi TEXT NOT NULL DEFAULT '', isbn TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
+                language_name TEXT NOT NULL DEFAULT '', keywords TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_literature_title ON literature_catalog(title COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_literature_authors ON literature_catalog(authors COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_literature_doi ON literature_catalog(doi COLLATE NOCASE);
+            CREATE TABLE IF NOT EXISTS disease_literature (
+                disease_id INTEGER NOT NULL, literature_id INTEGER NOT NULL,
+                relation_note TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY(disease_id, literature_id),
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE,
+                FOREIGN KEY(literature_id) REFERENCES literature_catalog(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_disease_literature_lit ON disease_literature(literature_id, disease_id);
+            CREATE TABLE IF NOT EXISTS disease_private_notes (
+                disease_id INTEGER PRIMARY KEY, note_text TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL,
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS disease_synonyms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, disease_id INTEGER NOT NULL,
+                synonym_name TEXT NOT NULL, synonym_type TEXT NOT NULL DEFAULT 'Bilimsel eş ad',
+                is_preferred INTEGER NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE,
+                UNIQUE(disease_id, synonym_name COLLATE NOCASE)
+            );
+            CREATE INDEX IF NOT EXISTS idx_disease_synonyms_name ON disease_synonyms(synonym_name COLLATE NOCASE);
             """
         )
         disease_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(diseases)").fetchall()]
@@ -222,6 +257,7 @@ class Database(object):
             ("captured_at", "TEXT NOT NULL DEFAULT ''"),
             ("source", "TEXT NOT NULL DEFAULT ''"),
             ("sort_order", "INTEGER NOT NULL DEFAULT 0"),
+            ("image_category", "TEXT NOT NULL DEFAULT 'Genel'"),
         ]:
             if column_name not in columns:
                 self.conn.execute("ALTER TABLE attachments ADD COLUMN {} {}".format(column_name, definition))
@@ -241,6 +277,9 @@ class Database(object):
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_taxonomy_agent ON taxonomy_catalog(agent_group COLLATE NOCASE)")
         self.conn.execute("PRAGMA user_version = {}".format(self.SCHEMA_VERSION))
         self.conn.commit()
+        # Eski serbest metin sinonimlerini normalize edilmiş kataloğa taşı.
+        for row in self.conn.execute("SELECT id, synonyms FROM diseases WHERE TRIM(COALESCE(synonyms,''))<>''").fetchall():
+            self.sync_disease_synonyms(int(row["id"]), row["synonyms"] or "")
 
     def seed_if_empty(self):
         count = self.conn.execute("SELECT COUNT(*) FROM diseases").fetchone()[0]
@@ -301,8 +340,8 @@ class Database(object):
         ]
         if query:
             like = "%" + query + "%"
-            clauses.append("(" + " OR ".join([field + " LIKE ?" for field in searchable]) + ")")
-            params.extend([like] * len(searchable))
+            clauses.append("((" + " OR ".join([field + " LIKE ?" for field in searchable]) + ") OR EXISTS (SELECT 1 FROM disease_synonyms ds WHERE ds.disease_id=diseases.id AND ds.synonym_name LIKE ?))")
+            params.extend([like] * (len(searchable)+1))
         if host:
             clauses.append("EXISTS (SELECT 1 FROM disease_hosts dh JOIN host_catalog hc ON hc.id=dh.host_id WHERE dh.disease_id=diseases.id AND dh.is_excluded=0 AND (hc.common_name LIKE ? OR hc.scientific_name LIKE ? OR hc.family_name LIKE ? OR hc.genus_name LIKE ? OR hc.alternative_names LIKE ?))")
             params.extend(["%" + host + "%"] * 5)
@@ -507,7 +546,9 @@ class Database(object):
         )
         cur = self.conn.execute(sql, values + [now, now])
         self.conn.commit()
-        return cur.lastrowid
+        disease_id = cur.lastrowid
+        self.sync_disease_synonyms(disease_id, data.get("synonyms", ""))
+        return disease_id
 
     def update(self, disease_id, data):
         current = self.get(disease_id)
@@ -524,6 +565,7 @@ class Database(object):
             values + [now, disease_id],
         )
         self.conn.commit()
+        self.sync_disease_synonyms(disease_id, data.get("synonyms", ""))
 
     def _save_history(self, disease_id, snapshot, rich_data=None, changed_fields=None):
         now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -609,6 +651,80 @@ class Database(object):
     def delete_attachment(self, attachment_id):
         self.conn.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
         self.conn.commit()
+
+    def literature_list(self, query=""):
+        query=(query or "").strip()
+        if not query:
+            return self.conn.execute("SELECT * FROM literature_catalog ORDER BY year_text DESC, authors COLLATE NOCASE, title COLLATE NOCASE").fetchall()
+        like="%"+query+"%"
+        return self.conn.execute("""SELECT * FROM literature_catalog WHERE authors LIKE ? OR title LIKE ? OR journal LIKE ? OR doi LIKE ? OR isbn LIKE ? OR keywords LIKE ? ORDER BY year_text DESC, authors COLLATE NOCASE""", (like,like,like,like,like,like)).fetchall()
+
+    def literature_get(self, literature_id):
+        return self.conn.execute("SELECT * FROM literature_catalog WHERE id=?", (literature_id,)).fetchone()
+
+    def literature_save(self, literature_id=None, **data):
+        fields=("publication_type","authors","year_text","title","journal","volume","issue","pages","doi","isbn","url","language_name","keywords","notes")
+        now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        values=[(data.get(f) or "").strip() for f in fields]
+        if literature_id:
+            self.conn.execute("UPDATE literature_catalog SET "+", ".join(f+"=?" for f in fields)+", updated_at=? WHERE id=?", values+[now,literature_id])
+            result=literature_id
+        else:
+            cur=self.conn.execute("INSERT INTO literature_catalog ("+", ".join(fields)+",created_at,updated_at) VALUES ("+", ".join(["?"]*(len(fields)+2))+")", values+[now,now])
+            result=cur.lastrowid
+        self.conn.commit(); return result
+
+    def literature_delete(self, literature_id):
+        self.conn.execute("DELETE FROM literature_catalog WHERE id=?", (literature_id,)); self.conn.commit()
+
+    def disease_literature(self, disease_id):
+        return self.conn.execute("""SELECT l.*, dl.relation_note FROM disease_literature dl JOIN literature_catalog l ON l.id=dl.literature_id WHERE dl.disease_id=? ORDER BY l.year_text DESC, l.authors COLLATE NOCASE""", (disease_id,)).fetchall()
+
+    def link_literature(self, disease_id, literature_id, relation_note=""):
+        self.conn.execute("INSERT OR REPLACE INTO disease_literature(disease_id,literature_id,relation_note) VALUES(?,?,?)", (disease_id,literature_id,(relation_note or "").strip())); self.conn.commit()
+
+    def unlink_literature(self, disease_id, literature_id):
+        self.conn.execute("DELETE FROM disease_literature WHERE disease_id=? AND literature_id=?", (disease_id,literature_id)); self.conn.commit()
+
+    def disease_synonyms(self, disease_id):
+        return self.conn.execute("SELECT * FROM disease_synonyms WHERE disease_id=? ORDER BY is_preferred DESC, synonym_name COLLATE NOCASE", (disease_id,)).fetchall()
+
+    def sync_disease_synonyms(self, disease_id, synonyms_text):
+        from .scientific import split_synonyms
+        names=split_synonyms(synonyms_text)
+        current={r["synonym_name"].casefold():r for r in self.disease_synonyms(disease_id)}
+        keep=set(n.casefold() for n in names)
+        for key,row in current.items():
+            if key not in keep:
+                self.conn.execute("DELETE FROM disease_synonyms WHERE id=?", (row["id"],))
+        now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for name in names:
+            self.conn.execute("INSERT OR IGNORE INTO disease_synonyms(disease_id,synonym_name,created_at) VALUES(?,?,?)", (disease_id,name,now))
+        self.conn.commit()
+
+    def save_disease_synonym(self, disease_id, synonym_name, synonym_type="Bilimsel eş ad", is_preferred=0, notes=""):
+        now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute("INSERT OR REPLACE INTO disease_synonyms(id,disease_id,synonym_name,synonym_type,is_preferred,notes,created_at) VALUES((SELECT id FROM disease_synonyms WHERE disease_id=? AND synonym_name=? COLLATE NOCASE),?,?,?,?,?,COALESCE((SELECT created_at FROM disease_synonyms WHERE disease_id=? AND synonym_name=? COLLATE NOCASE),?))", (disease_id,synonym_name,disease_id,synonym_name.strip(),synonym_type.strip(),int(bool(is_preferred)),notes.strip(),disease_id,synonym_name,now))
+        row=self.get(disease_id)
+        names=[r["synonym_name"] for r in self.disease_synonyms(disease_id)]
+        if row:
+            self.conn.execute("UPDATE diseases SET synonyms=?, updated_at=? WHERE id=?", ("; ".join(names),now,disease_id))
+        self.conn.commit()
+
+    def delete_disease_synonym(self, synonym_id):
+        row=self.conn.execute("SELECT disease_id FROM disease_synonyms WHERE id=?", (synonym_id,)).fetchone()
+        if not row:return
+        disease_id=row[0]; self.conn.execute("DELETE FROM disease_synonyms WHERE id=?", (synonym_id,))
+        names=[r["synonym_name"] for r in self.disease_synonyms(disease_id)]
+        self.conn.execute("UPDATE diseases SET synonyms=? WHERE id=?", ("; ".join(names),disease_id)); self.conn.commit()
+
+    def private_note(self, disease_id):
+        row=self.conn.execute("SELECT note_text FROM disease_private_notes WHERE disease_id=?", (disease_id,)).fetchone()
+        return row[0] if row else ""
+
+    def save_private_note(self, disease_id, note_text):
+        now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute("INSERT OR REPLACE INTO disease_private_notes(disease_id,note_text,updated_at) VALUES(?,?,?)", (disease_id,note_text or "",now)); self.conn.commit()
 
     def export_csv(self, output_path):
         rows = self.conn.execute("SELECT * FROM diseases ORDER BY id").fetchall()
@@ -765,13 +881,13 @@ class Database(object):
 
 
 
-    def update_attachment_metadata(self, attachment_id, title, description, captured_at, source):
+    def update_attachment_metadata(self, attachment_id, title, description, captured_at, source, image_category="Genel"):
         self.conn.execute(
             """UPDATE attachments
-               SET title = ?, description = ?, captured_at = ?, source = ?
+               SET title = ?, description = ?, captured_at = ?, source = ?, image_category = ?
                WHERE id = ?""",
             ((title or "").strip(), (description or "").strip(),
-             (captured_at or "").strip(), (source or "").strip(), attachment_id),
+             (captured_at or "").strip(), (source or "").strip(), (image_category or "Genel").strip(), attachment_id),
         )
         self.conn.commit()
 
@@ -865,7 +981,8 @@ class Database(object):
                   "d.distribution_turkey","d.distribution_world","d.climate_notes","d.sources","d.notes"]
         clause = " OR ".join(field+" LIKE ?" for field in fields)
         clause += " OR EXISTS (SELECT 1 FROM attachments ax WHERE ax.disease_id=d.id AND (ax.title LIKE ? OR ax.description LIKE ? OR ax.source LIKE ? OR ax.relative_path LIKE ?))"
-        params = [like]*len(fields) + [like]*4 + [int(limit)]
+        clause += " OR EXISTS (SELECT 1 FROM disease_synonyms ds WHERE ds.disease_id=d.id AND ds.synonym_name LIKE ?)"
+        params = [like]*len(fields) + [like]*5 + [int(limit)]
         sql = self._dashboard_base_sql()+" AND ("+clause+") ORDER BY d.updated_at DESC LIMIT ?"
         return self.conn.execute(sql, params).fetchall()
 
