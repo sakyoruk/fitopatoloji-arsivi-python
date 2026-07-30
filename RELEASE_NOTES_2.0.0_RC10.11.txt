@@ -1,0 +1,5 @@
+Fitopatoloji Arşivi 2.0.0 RC10.11
+
+- Hastalık düzenleyicisinde eksik kalan konukçu seçme, kaldırma ve ilişki düzenleme metotları geri getirildi.
+- Düzenleyicinin açılışta AttributeError ile kapanması giderildi.
+- Konukçu ilişki penceresi ekranın ortasında açılacak şekilde düzenlendi.
