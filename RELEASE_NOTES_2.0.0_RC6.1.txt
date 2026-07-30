@@ -1,0 +1,6 @@
+Fitopatoloji Arşivi 2.0.0 RC6.1
+
+Düzeltme:
+- Windows 7 / eski Tk sürümlerinde Rich Text görsel font yenilemesi sırasında
+  Text.count() metodunun None döndürmesiyle oluşan hata giderildi.
+- Karakter sıralaması için güvenli geri dönüş yöntemi eklendi.

@@ -144,7 +144,22 @@ class RichTextEditor(ttk.Frame):
                 for i in range(0,len(ranges),2): relevant.append((str(ranges[i]),str(ranges[i+1]),tag))
         boundaries={"1.0","end-1c"}
         for a,b,_ in relevant:boundaries.add(a);boundaries.add(b)
-        points=sorted(boundaries,key=lambda idx:int(self.text.count("1.0",idx,"chars")[0]))
+        def char_offset(idx):
+            # Tk 8.5/Windows 7 üzerinde Text.count bazı durumlarda None
+            # döndürebiliyor. Böyle bir durumda metni okuyarak güvenli bir
+            # karakter konumu hesapla.
+            try:
+                counted = self.text.count("1.0", idx, "chars")
+                if counted and counted[0] is not None:
+                    return int(counted[0])
+            except (tk.TclError, TypeError, ValueError):
+                pass
+            try:
+                return len(self.text.get("1.0", idx))
+            except tk.TclError:
+                return 0
+
+        points=sorted(boundaries,key=char_offset)
         for i in range(len(points)-1):
             a,b=points[i],points[i+1]
             if self.text.compare(a,">=",b):continue
