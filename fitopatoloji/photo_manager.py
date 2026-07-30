@@ -181,9 +181,14 @@ class PhotoManager(tk.Toplevel):
         self.description_entry = ttk.Entry(form)
         self.date_entry = ttk.Entry(form)
         self.source_entry = ttk.Entry(form)
+        self.photographer_entry = ttk.Entry(form)
+        self.copyright_entry = ttk.Entry(form)
+        self.license_entry = ttk.Entry(form)
+        self.scale_entry = ttk.Entry(form)
+        self.location_entry = ttk.Entry(form)
         self.category_var = tk.StringVar(value="Genel")
         self.category_combo = ttk.Combobox(form,textvariable=self.category_var,values=("Genel","Saha","Makro","Mikroskop","Laboratuvar","Belirti","Etmen","Mücadele"),state="readonly")
-        for row, (label, widget) in enumerate((("Başlık", self.title_entry), ("Açıklama", self.description_entry), ("Çekim tarihi", self.date_entry), ("Kaynak / fotoğrafçı", self.source_entry), ("Fotoğraf kategorisi", self.category_combo))):
+        for row, (label, widget) in enumerate((("Başlık", self.title_entry), ("Açıklama", self.description_entry), ("Çekim tarihi", self.date_entry), ("Kaynak", self.source_entry), ("Fotoğrafçı", self.photographer_entry), ("Telif sahibi", self.copyright_entry), ("Lisans / kullanım", self.license_entry), ("Ölçek bilgisi", self.scale_entry), ("Çekim yeri", self.location_entry), ("Fotoğraf kategorisi", self.category_combo))):
             ttk.Label(form, text=label+":").grid(row=row, column=0, sticky="w", pady=4)
             widget.grid(row=row, column=1, sticky="ew", padx=(8,0), pady=4)
         form.columnconfigure(1, weight=1)
@@ -266,7 +271,7 @@ class PhotoManager(tk.Toplevel):
 
     def show_selected(self):
         row=self.selected_row()
-        for entry in (self.title_entry,self.description_entry,self.date_entry,self.source_entry):
+        for entry in (self.title_entry,self.description_entry,self.date_entry,self.source_entry,self.photographer_entry,self.copyright_entry,self.license_entry,self.scale_entry,self.location_entry):
             entry.delete(0,"end")
         self.preview_ref=None
         if not row:
@@ -287,6 +292,12 @@ class PhotoManager(tk.Toplevel):
         self.description_entry.insert(0,row["description"] or "")
         self.date_entry.insert(0,row["captured_at"] or "")
         self.source_entry.insert(0,row["source"] or "")
+        self.photographer_entry.insert(0,row["photographer"] or "")
+        self.copyright_entry.insert(0,row["copyright_owner"] or "")
+        self.license_entry.insert(0,row["license_text"] or "")
+        self.scale_entry.insert(0,row["scale_info"] or "")
+        self.location_entry.insert(0,row["location_text"] or "")
+        self.category_var.set(row["image_category"] or "Genel")
 
     def import_photos(self):
         dialog=PhotoImportDialog(self,self.paths)
@@ -361,7 +372,7 @@ class PhotoManager(tk.Toplevel):
         row=self.selected_row()
         if not row:
             messagebox.showinfo(APP_NAME,"Bilgilerini düzenlemek için tek bir fotoğraf seçin.",parent=self); return
-        self.db.update_attachment_metadata(row["id"],self.title_entry.get(),self.description_entry.get(),self.date_entry.get(),self.source_entry.get(),self.category_var.get())
+        self.db.update_attachment_metadata(row["id"],self.title_entry.get(),self.description_entry.get(),self.date_entry.get(),self.source_entry.get(),self.category_var.get(),self.photographer_entry.get(),self.copyright_entry.get(),self.license_entry.get(),self.scale_entry.get(),self.location_entry.get())
         self.refresh()
 
     def make_primary(self):

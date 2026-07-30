@@ -18,6 +18,7 @@ from .rc_shell import ContextPanel, AboutDialog
 from .catalogs import TaxonomyCatalog, HostCatalog
 from .literature import LiteratureCatalog, PrivateNoteDialog
 from .quiz import QuizCenter
+from .reports import ReportsCenter
 
 class MainWindow(tk.Tk):
     def __init__(self, paths, database):
@@ -112,6 +113,9 @@ class MainWindow(tk.Tk):
     def open_quiz_center(self):
         QuizCenter(self, self.db, self.selected_id, self.open_record_by_id)
 
+    def open_reports_center(self):
+        ReportsCenter(self, self.db, self.paths)
+
     def open_monograph(self):
         selected = []
         if self.selected_id:
@@ -154,6 +158,7 @@ class MainWindow(tk.Tk):
             ("hosts", "Konukçu kataloğunu aç", "Yapılandırılmış konukçular", self.open_host_catalog),
             ("literature", "Literatür kataloğunu aç", "Kaynakları tek merkezde yönet", self.open_literature_catalog),
             ("quiz", "Bilgi sınavı merkezini aç", "Soru bankası ve öğrenme geçmişi", self.open_quiz_center),
+            ("reports", "Bilimsel raporları aç", "İstatistikler ve CSV dışa aktarım", self.open_reports_center),
             ("preview", "Seçili kaydı incele", "Önizleme", self.preview_record),
             ("photos", "Fotoğraf yöneticisini aç", "Görsel katalog", self.open_photo_manager),
             ("compare", "Hastalıkları karşılaştır", "Karşılaştırma", self.open_comparison),
@@ -232,6 +237,7 @@ class MainWindow(tk.Tk):
         ttk.Button(nav, text="✎  Özel notlar", style="Nav.TButton", command=self.open_private_notes).pack(fill="x")
         ttk.Button(nav, text="▧  Monografi", style="Nav.TButton", command=self.open_monograph).pack(fill="x")
         ttk.Button(nav, text="★  Bilgi sınavı", style="Nav.TButton", command=self.open_quiz_center).pack(fill="x")
+        ttk.Button(nav, text="▥  Bilimsel raporlar", style="Nav.TButton", command=self.open_reports_center).pack(fill="x")
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
         ttk.Label(nav, text="SİSTEM", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
         ttk.Button(nav, text="⛁  Yedekleme", style="Nav.TButton", command=self.create_backup).pack(fill="x")

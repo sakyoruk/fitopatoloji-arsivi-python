@@ -3,6 +3,13 @@
 from .common import *
 from .rich_utils import to_reportlab, to_html
 import webbrowser
+try:
+    from docx import Document
+    from docx.shared import Cm, Pt
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    DOCX_AVAILABLE = True
+except Exception:
+    DOCX_AVAILABLE = False
 
 
 DEFAULT_FIELDS = [
@@ -44,6 +51,7 @@ class MonographBuilder(tk.Toplevel):
         ttk.Label(top, text="Dijital Monografi Oluşturucu", style="Title.TLabel").pack(side="left")
         ttk.Button(top, text="HTML önizleme", command=self.preview_html).pack(side="right", padx=3)
         ttk.Button(top, text="PDF oluştur", style="Primary.TButton", command=self.export_pdf).pack(side="right", padx=3)
+        ttk.Button(top, text="DOCX oluştur", command=self.export_docx).pack(side="right", padx=3)
         ttk.Button(top, text="Taslağı kaydet", command=self.save_project).pack(side="right", padx=3)
 
         paned = ttk.Panedwindow(self, orient="horizontal"); paned.pack(fill="both", expand=True, padx=12)
@@ -194,6 +202,57 @@ class MonographBuilder(tk.Toplevel):
         path=os.path.join(self.paths.exports,"Monografi_Onizleme.html")
         with open(path,"w",encoding="utf-8") as f:f.write(self._html(cfg))
         webbrowser.open("file:///"+path.replace('\\','/')); self.status_var.set("HTML önizleme açıldı.")
+
+    def export_docx(self):
+        cfg=self._config()
+        if not cfg["disease_ids"]:
+            messagebox.showinfo(APP_NAME,"Önce hastalık seçin.",parent=self); return
+        if not DOCX_AVAILABLE:
+            messagebox.showerror(APP_NAME,"DOCX için python-docx bulunamadı.",parent=self); return
+        out=filedialog.asksaveasfilename(parent=self,title="Monografi DOCX",initialdir=self.paths.exports,initialfile=re.sub(r'[^A-Za-z0-9_-]+','_',cfg['title']).strip('_')+'.docx',defaultextension='.docx',filetypes=[('Word belgesi','*.docx')])
+        if not out:return
+        try:
+            doc=Document(); sec=doc.sections[0]; sec.top_margin=Cm(1.8); sec.bottom_margin=Cm(1.8); sec.left_margin=Cm(2); sec.right_margin=Cm(2)
+            p=doc.add_paragraph(); p.alignment=WD_ALIGN_PARAGRAPH.CENTER; r=p.add_run(cfg['title']); r.bold=True; r.font.size=Pt(24)
+            p=doc.add_paragraph(); p.alignment=WD_ALIGN_PARAGRAPH.CENTER; p.add_run(cfg['subtitle']).italic=True
+            for value in (cfg['author'],cfg['institution'],dt.datetime.now().strftime('%d.%m.%Y')):
+                p=doc.add_paragraph(); p.alignment=WD_ALIGN_PARAGRAPH.CENTER; p.add_run(value)
+            doc.add_page_break(); doc.add_heading('İçindekiler',level=1)
+            for no,did in enumerate(cfg['disease_ids'],1):
+                row=self.db.get(did); doc.add_paragraph('{}. {}'.format(no,row['disease_name']),style='List Number')
+            all_refs=[]
+            for no,did in enumerate(cfg['disease_ids'],1):
+                row=self.db.get(did); doc.add_page_break(); doc.add_heading('{}. {}'.format(no,row['disease_name']),level=1)
+                p=doc.add_paragraph(); rr=p.add_run(row['scientific_name'] or ''); rr.italic=True
+                for key,label in DEFAULT_FIELDS:
+                    if key not in cfg['fields']:continue
+                    value=(row[key] or '').strip()
+                    if not value and cfg['hide_empty']:continue
+                    doc.add_heading(label,level=2); doc.add_paragraph(value)
+                linked=self.db.disease_literature(did)
+                if linked:
+                    doc.add_heading('Yapılandırılmış literatür',level=2)
+                    for x in linked:
+                        citation="{} ({}) {}. {}{}".format(x['authors'],x['year_text'],x['title'],x['journal'],(' DOI: '+x['doi']) if x['doi'] else '').strip(); all_refs.append(citation); doc.add_paragraph(citation,style='List Bullet')
+                if cfg['photos']:
+                    photos=self.db.image_attachments(did)
+                    if photos: doc.add_heading('Fotoğraflar',level=2)
+                    for ph in photos:
+                        path=os.path.join(self.paths.base,ph['relative_path'])
+                        if os.path.isfile(path):
+                            try: doc.add_picture(path,width=Cm(13.5))
+                            except Exception: pass
+                            cap='{} — {}'.format(ph['image_category'] or 'Genel',ph['title'] or ph['description'] or os.path.basename(path)); cp=doc.add_paragraph(cap); cp.alignment=WD_ALIGN_PARAGRAPH.CENTER
+                            rights=' • '.join(x for x in (ph['photographer'],ph['copyright_owner'],ph['license_text'],ph['scale_info'],ph['location_text']) if x)
+                            if rights:
+                                rp=doc.add_paragraph(rights); rp.alignment=WD_ALIGN_PARAGRAPH.CENTER
+            if all_refs:
+                doc.add_page_break(); doc.add_heading('Ortak Kaynakça',level=1)
+                refs=sorted(set(all_refs),key=str.lower) if cfg['common_refs'] else all_refs
+                for ref in refs: doc.add_paragraph(ref,style='List Number')
+            doc.save(out); self.db.save_monograph_export(cfg['title'],out,len(cfg['disease_ids'])); messagebox.showinfo(APP_NAME,'DOCX oluşturuldu:\n'+out,parent=self)
+        except Exception as exc:
+            messagebox.showerror(APP_NAME,'DOCX oluşturulamadı:\n{}'.format(exc),parent=self)
 
     def export_pdf(self):
         cfg=self._config()

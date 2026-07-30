@@ -15,5 +15,5 @@ class RC8Tests(unittest.TestCase):
     def test_session_stats(self):
         self.db.quiz_session_save('Sınav',10,8,2,0,80.0,120,[])
         stats=self.db.quiz_stats(); self.assertEqual(stats['sessions'],1); self.assertEqual(stats['questions'],10); self.assertEqual(stats['average_score'],80.0)
-    def test_schema_version(self): self.assertEqual(self.db.schema_version(),20009)
+    def test_schema_version(self): self.assertEqual(self.db.schema_version(),20010)
 if __name__=='__main__': unittest.main()

@@ -2,7 +2,7 @@
 from .common import *
 
 class Database(object):
-    SCHEMA_VERSION = 20009
+    SCHEMA_VERSION = 20010
 
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
@@ -282,11 +282,20 @@ class Database(object):
             ("source", "TEXT NOT NULL DEFAULT ''"),
             ("sort_order", "INTEGER NOT NULL DEFAULT 0"),
             ("image_category", "TEXT NOT NULL DEFAULT 'Genel'"),
+            ("photographer", "TEXT NOT NULL DEFAULT ''"),
+            ("copyright_owner", "TEXT NOT NULL DEFAULT ''"),
+            ("license_text", "TEXT NOT NULL DEFAULT ''"),
+            ("scale_info", "TEXT NOT NULL DEFAULT ''"),
+            ("location_text", "TEXT NOT NULL DEFAULT ''"),
         ]:
             if column_name not in columns:
                 self.conn.execute("ALTER TABLE attachments ADD COLUMN {} {}".format(column_name, definition))
         self.conn.execute("UPDATE attachments SET sort_order = id WHERE sort_order = 0")
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_attachments_type ON attachments(file_type, disease_id)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_diseases_agent_group ON diseases(agent_group COLLATE NOCASE)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_diseases_taxonomy_order ON diseases(order_name COLLATE NOCASE)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_quiz_active_disease ON quiz_questions(is_active, disease_id)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_literature_year ON literature_catalog(year_text COLLATE NOCASE)")
 
         taxonomy_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(taxonomy_catalog)").fetchall()]
         for column_name in ("agent_group", "source", "accessed_at"):
@@ -905,13 +914,16 @@ class Database(object):
 
 
 
-    def update_attachment_metadata(self, attachment_id, title, description, captured_at, source, image_category="Genel"):
+    def update_attachment_metadata(self, attachment_id, title, description, captured_at, source, image_category="Genel", photographer="", copyright_owner="", license_text="", scale_info="", location_text=""):
         self.conn.execute(
             """UPDATE attachments
-               SET title = ?, description = ?, captured_at = ?, source = ?, image_category = ?
+               SET title = ?, description = ?, captured_at = ?, source = ?, image_category = ?,
+                   photographer = ?, copyright_owner = ?, license_text = ?, scale_info = ?, location_text = ?
                WHERE id = ?""",
             ((title or "").strip(), (description or "").strip(),
-             (captured_at or "").strip(), (source or "").strip(), (image_category or "Genel").strip(), attachment_id),
+             (captured_at or "").strip(), (source or "").strip(), (image_category or "Genel").strip(),
+             (photographer or "").strip(), (copyright_owner or "").strip(), (license_text or "").strip(),
+             (scale_info or "").strip(), (location_text or "").strip(), attachment_id),
         )
         self.conn.commit()
 
