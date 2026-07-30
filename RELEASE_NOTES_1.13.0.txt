@@ -1,0 +1,16 @@
+Fitopatoloji Arşivi 1.13.0 — Dijital Monografi Oluşturucu
+
+- Birden fazla hastalığı kitap düzeninde bir araya getiren monografi sihirbazı
+- Hastalık seçimi, arama, ekleme, çıkarma ve bölüm sıralama
+- Bilimsel, Atlas ve Ders Notu şablon seçenekleri
+- Kapak başlığı, alt başlık, yazar ve kurum bilgileri
+- Dahil edilecek bilgi bölümlerini ayrı ayrı seçebilme
+- Boş bölümleri gizleme ve ortak kaynakçayı tekilleştirme
+- Fotoğraflı PDF monografi çıktısı
+- Tarayıcıda HTML monografi önizlemesi ve yazdırma
+- Otomatik kapak, içindekiler, bölüm numaralandırması ve sayfa numaraları
+- Etmen ve konukçu bilimsel indeksi
+- Monografi taslaklarını kaydetme, yeniden açma ve silme
+- Oluşturulan monografilerin çıktı geçmişini veritabanında tutma
+- Sol menü ve Ctrl+K komut paleti entegrasyonu
+- Mevcut veritabanlarıyla geriye dönük uyumluluk

@@ -9,6 +9,7 @@ from .dashboard import Dashboard
 from .disease_file import DiseaseFile
 from .knowledge_graph import KnowledgeCenter
 from .workspace import Workspace
+from .monograph import MonographBuilder
 from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
 
@@ -69,6 +70,16 @@ class MainWindow(tk.Tk):
             pass
         self.workspace_window = Workspace(self, self.db, self.paths, self.selected_id, self.open_record_by_id, self.edit_record)
 
+    def open_monograph(self):
+        selected = []
+        if self.selected_id:
+            selected.append(self.selected_id)
+        try:
+            selected.extend(int(x) for x in self.tree.selection() if int(x) not in selected)
+        except Exception:
+            pass
+        MonographBuilder(self, self.db, self.paths, selected)
+
     def open_record_by_id(self, disease_id):
         self.search_var.set("")
         self.group_var.set("TÜMÜ")
@@ -92,6 +103,7 @@ class MainWindow(tk.Tk):
         commands = [
             ("dashboard", "Çalışma merkezini aç", "Arşiv özeti", self.open_dashboard),
             ("workspace", "Araştırmacı çalışma alanını aç", "Sekmeler, notlar ve görevler", self.open_workspace),
+            ("monograph", "Dijital monografi oluştur", "Kitap düzeninde PDF ve HTML", self.open_monograph),
             ("new", "Yeni hastalık kaydı", "Kayıt oluştur", self.new_record),
             ("edit", "Seçili kaydı düzenle", "Düzenleyici", self.edit_record),
             ("file", "Dijital hastalık dosyasını aç", "Dosya görünümü", self.open_disease_file),
@@ -154,6 +166,7 @@ class MainWindow(tk.Tk):
 
         ttk.Button(nav, text="⌂  Çalışma merkezi", style="Nav.TButton", command=self.open_dashboard).pack(fill="x")
         ttk.Button(nav, text="▦  Çalışma alanı", style="Nav.TButton", command=self.open_workspace).pack(fill="x")
+        ttk.Button(nav, text="▧  Monografi oluştur", style="Nav.TButton", command=self.open_monograph).pack(fill="x")
         ttk.Button(nav, text="＋  Yeni kayıt", style="Nav.TButton", command=self.new_record).pack(fill="x")
         ttk.Button(nav, text="✎  Kaydı düzenle", style="Nav.TButton", command=self.edit_record).pack(fill="x")
         ttk.Button(nav, text="▣  Hastalık dosyası", style="Nav.TButton", command=self.open_disease_file).pack(fill="x")

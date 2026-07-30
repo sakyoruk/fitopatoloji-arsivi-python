@@ -111,6 +111,14 @@ class Database(object):
                 FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE SET NULL
             );
             CREATE INDEX IF NOT EXISTS idx_tasks_done ON disease_tasks(is_done, updated_at DESC);
+            CREATE TABLE IF NOT EXISTS monograph_projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
+                config_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS monograph_exports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
+                output_path TEXT NOT NULL, disease_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+            );
             """
         )
         disease_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(diseases)").fetchall()]
@@ -709,6 +717,21 @@ class Database(object):
 
     def delete_task(self, task_id):
         self.conn.execute("DELETE FROM disease_tasks WHERE id=?", (task_id,)); self.conn.commit()
+
+    def monograph_projects(self):
+        return self.conn.execute("SELECT * FROM monograph_projects ORDER BY updated_at DESC").fetchall()
+
+    def save_monograph_project(self, name, config):
+        now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute("INSERT OR REPLACE INTO monograph_projects (id,name,config_json,created_at,updated_at) VALUES ((SELECT id FROM monograph_projects WHERE name=?),?,?,COALESCE((SELECT created_at FROM monograph_projects WHERE name=?),?),?)", (name,name,json.dumps(config,ensure_ascii=False),name,now,now))
+        self.conn.commit()
+
+    def delete_monograph_project(self, project_id):
+        self.conn.execute("DELETE FROM monograph_projects WHERE id=?", (project_id,)); self.conn.commit()
+
+    def save_monograph_export(self, title, output_path, disease_count):
+        now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute("INSERT INTO monograph_exports (title,output_path,disease_count,created_at) VALUES (?,?,?,?)", (title,output_path,int(disease_count),now)); self.conn.commit()
 
     def backup_to(self, destination_db):
         target = sqlite3.connect(destination_db)
