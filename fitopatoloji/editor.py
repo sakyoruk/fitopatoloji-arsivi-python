@@ -142,6 +142,135 @@ class DiseaseEditor(tk.Toplevel):
         editor.grid(row=1, column=0, sticky="nsew")
         self.texts["content_body"] = editor
 
+    def _refresh_selected_hosts(self):
+        if not hasattr(self, "host_tree"):
+            return
+        self.host_tree.delete(*self.host_tree.get_children())
+        names = []
+        valid = []
+        if self.db:
+            for relation in self.selected_host_relations:
+                try:
+                    host_id = int(relation.get("host_id"))
+                except (TypeError, ValueError):
+                    continue
+                row = self.db.host_get(host_id)
+                if not row:
+                    continue
+                normalized = {
+                    "host_id": host_id,
+                    "relation_type": relation.get("relation_type", "Doğal konukçu"),
+                    "scope_type": relation.get("scope_type", "Doğrudan"),
+                    "relation_note": relation.get("relation_note", ""),
+                    "is_excluded": int(bool(relation.get("is_excluded", 0))),
+                }
+                valid.append(normalized)
+                common = row["common_name"] or ""
+                scientific = row["scientific_name"] or ""
+                self.host_tree.insert(
+                    "", "end", iid=str(host_id),
+                    values=(common, scientific, row["taxon_level"] or "",
+                            normalized["relation_type"], normalized["scope_type"],
+                            "Hariç" if normalized["is_excluded"] else "Dahil")
+                )
+                names.append("{} ({})".format(common, scientific) if common and scientific else (common or scientific))
+        self.selected_host_relations = valid
+        self.selected_host_ids = [r["host_id"] for r in valid]
+        self.hosts_var.set(", ".join(names))
+        self.host_count_var.set("{} konukçu".format(len(valid)))
+
+    def _select_hosts(self):
+        if not self.db:
+            messagebox.showinfo(APP_NAME, "Konukçu kataloğu kullanılamıyor.", parent=self)
+            return
+
+        def selected(rows):
+            existing = set(self.selected_host_ids)
+            for row in rows:
+                host_id = int(row["id"])
+                if host_id not in existing:
+                    self.selected_host_relations.append({
+                        "host_id": host_id,
+                        "relation_type": "Doğal konukçu",
+                        "scope_type": "Doğrudan",
+                        "relation_note": "",
+                        "is_excluded": 0,
+                    })
+                    existing.add(host_id)
+            self._refresh_selected_hosts()
+            self.mark_dirty()
+
+        HostCatalog(self, self.db, select_mode=True, on_select=selected,
+                    preselected_ids=self.selected_host_ids)
+
+    def _remove_selected_hosts(self):
+        selected = [int(iid) for iid in self.host_tree.selection()]
+        if not selected:
+            messagebox.showinfo(APP_NAME, "Kaldırmak için bir veya daha fazla konukçu seçin.", parent=self)
+            return
+        remove_ids = set(selected)
+        self.selected_host_relations = [
+            r for r in self.selected_host_relations
+            if int(r.get("host_id")) not in remove_ids
+        ]
+        self._refresh_selected_hosts()
+        self.mark_dirty()
+
+    def _edit_selected_host_relation(self):
+        selected = self.host_tree.selection()
+        if len(selected) != 1:
+            messagebox.showinfo(APP_NAME, "Düzenlemek için tek bir konukçu seçin.", parent=self)
+            return
+        host_id = int(selected[0])
+        relation = next((r for r in self.selected_host_relations
+                         if int(r.get("host_id")) == host_id), None)
+        if not relation:
+            return
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Konukçu ilişkisini düzenle")
+        dlg.transient(self)
+        dlg.grab_set()
+        dlg.geometry("560x360")
+        center_toplevel(dlg)
+        frm = ttk.Frame(dlg, padding=14)
+        frm.pack(fill="both", expand=True)
+        frm.columnconfigure(1, weight=1)
+        relation_var = tk.StringVar(value=relation.get("relation_type", "Doğal konukçu"))
+        scope_var = tk.StringVar(value=relation.get("scope_type", "Doğrudan"))
+        excluded_var = tk.BooleanVar(value=bool(relation.get("is_excluded", 0)))
+        note_var = tk.StringVar(value=relation.get("relation_note", ""))
+        ttk.Label(frm, text="İlişki türü").grid(row=0, column=0, sticky="w", pady=7)
+        ttk.Combobox(frm, textvariable=relation_var,
+                     values=["Doğal konukçu", "Alternatif konukçu", "Deneysel konukçu",
+                             "Ara konukçu", "Rezervuar / taşıyıcı", "Konukçu değil", "Belirsiz"],
+                     state="readonly").grid(row=0, column=1, sticky="ew", pady=7)
+        ttk.Label(frm, text="Kapsam").grid(row=1, column=0, sticky="w", pady=7)
+        ttk.Combobox(frm, textvariable=scope_var,
+                     values=["Doğrudan", "Familyanın tamamı", "Familya içinde bazı türler",
+                             "Cinsin tamamı", "Cins içinde bazı türler", "Çeşit / kültivar düzeyi"],
+                     state="readonly").grid(row=1, column=1, sticky="ew", pady=7)
+        ttk.Label(frm, text="Not").grid(row=2, column=0, sticky="w", pady=7)
+        ttk.Entry(frm, textvariable=note_var).grid(row=2, column=1, sticky="ew", pady=7)
+        ttk.Checkbutton(frm,
+                        text="Bu kaydı hariç tutulan / konukçu olmayan kayıt olarak işaretle",
+                        variable=excluded_var).grid(row=3, column=0, columnspan=2,
+                                                    sticky="w", pady=12)
+
+        def save_relation():
+            relation.update({
+                "relation_type": relation_var.get(),
+                "scope_type": scope_var.get(),
+                "relation_note": note_var.get().strip(),
+                "is_excluded": int(excluded_var.get()),
+            })
+            self._refresh_selected_hosts()
+            self.mark_dirty()
+            dlg.destroy()
+
+        ttk.Button(frm, text="Kaydet", style="Primary.TButton",
+                   command=save_relation).grid(row=4, column=1, sticky="e", pady=(18, 0))
+
     def _bind_change_tracking(self):
         for var in self.vars.values():
             var.trace_add("write", lambda *_args: self.mark_dirty())
