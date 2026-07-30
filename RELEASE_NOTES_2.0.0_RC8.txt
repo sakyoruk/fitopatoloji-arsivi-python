@@ -1,0 +1,11 @@
+Fitopatoloji Arşivi 2.0.0 RC8
+
+- Soru bankası: çoktan seçmeli, doğru/yanlış ve kısa cevap soruları.
+- Hastalık, konu etiketi, zorluk ve kaynak bağlantıları.
+- Sınav ve çalışma modları.
+- Rastgele soru seçimi ve filtreli test oluşturma.
+- Anında açıklamalı geri bildirim.
+- Puan, doğru, yanlış, boş ve süre hesaplama.
+- Yanlış sorudan ilgili hastalık kaydına geçiş.
+- Sınav geçmişi ve genel başarı istatistikleri.
+- Veritabanı şeması 20009.

@@ -22,7 +22,7 @@ class RC3RegressionTests(unittest.TestCase):
     def test_rc3_schema_and_catalogs(self):
         self.assertEqual(
             self.db.conn.execute("PRAGMA user_version").fetchone()[0],
-            20008,
+            20009,
         )
         self.db.taxonomy_save(
             None, "Familya", "Peronosporaceae", "Oomycetes", ""

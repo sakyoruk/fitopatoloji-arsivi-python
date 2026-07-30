@@ -2,7 +2,7 @@
 from .common import *
 
 class Database(object):
-    SCHEMA_VERSION = 20008
+    SCHEMA_VERSION = 20009
 
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
@@ -217,6 +217,30 @@ class Database(object):
                 UNIQUE(disease_id, synonym_name COLLATE NOCASE)
             );
             CREATE INDEX IF NOT EXISTS idx_disease_synonyms_name ON disease_synonyms(synonym_name COLLATE NOCASE);
+
+            CREATE TABLE IF NOT EXISTS quiz_questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                disease_id INTEGER,
+                question_type TEXT NOT NULL DEFAULT 'Çoktan seçmeli',
+                question_text TEXT NOT NULL,
+                difficulty TEXT NOT NULL DEFAULT 'Orta',
+                topic_tag TEXT NOT NULL DEFAULT '',
+                option_a TEXT NOT NULL DEFAULT '', option_b TEXT NOT NULL DEFAULT '',
+                option_c TEXT NOT NULL DEFAULT '', option_d TEXT NOT NULL DEFAULT '',
+                correct_answer TEXT NOT NULL DEFAULT '', explanation TEXT NOT NULL DEFAULT '',
+                source_text TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE SET NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_quiz_questions_disease ON quiz_questions(disease_id, is_active);
+            CREATE INDEX IF NOT EXISTS idx_quiz_questions_topic ON quiz_questions(topic_tag COLLATE NOCASE);
+            CREATE TABLE IF NOT EXISTS quiz_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, mode TEXT NOT NULL,
+                started_at TEXT NOT NULL, total_questions INTEGER NOT NULL,
+                correct_count INTEGER NOT NULL, wrong_count INTEGER NOT NULL, blank_count INTEGER NOT NULL,
+                score REAL NOT NULL, duration_seconds INTEGER NOT NULL DEFAULT 0,
+                details_json TEXT NOT NULL DEFAULT '[]'
+            );
             """
         )
         disease_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(diseases)").fetchall()]
@@ -1025,6 +1049,55 @@ class Database(object):
     def save_monograph_export(self, title, output_path, disease_count):
         now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.conn.execute("INSERT INTO monograph_exports (title,output_path,disease_count,created_at) VALUES (?,?,?,?)", (title,output_path,int(disease_count),now)); self.conn.commit()
+
+
+    # RC8 — Bilgi Sınavı ve Öğrenme Modülü
+    def quiz_questions(self, query="", disease_id=None, difficulty="", topic="", active_only=False):
+        clauses=[]; params=[]
+        if query:
+            like="%"+query.strip()+"%"; clauses.append("(q.question_text LIKE ? OR q.topic_tag LIKE ? OR q.explanation LIKE ?)"); params.extend([like]*3)
+        if disease_id is not None: clauses.append("q.disease_id=?"); params.append(int(disease_id))
+        if difficulty: clauses.append("q.difficulty=?"); params.append(difficulty)
+        if topic: clauses.append("q.topic_tag LIKE ?"); params.append("%"+topic.strip()+"%")
+        if active_only: clauses.append("q.is_active=1")
+        where=(" WHERE "+" AND ".join(clauses)) if clauses else ""
+        return self.conn.execute("""SELECT q.*, d.disease_name, d.scientific_name FROM quiz_questions q
+            LEFT JOIN diseases d ON d.id=q.disease_id"""+where+" ORDER BY q.updated_at DESC, q.id DESC",params).fetchall()
+
+    def quiz_question_get(self, question_id):
+        return self.conn.execute("""SELECT q.*, d.disease_name, d.scientific_name FROM quiz_questions q
+            LEFT JOIN diseases d ON d.id=q.disease_id WHERE q.id=?""",(int(question_id),)).fetchone()
+
+    def quiz_question_save(self, question_id=None, **data):
+        now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        fields=("disease_id","question_type","question_text","difficulty","topic_tag","option_a","option_b","option_c","option_d","correct_answer","explanation","source_text")
+        values=[data.get(f) if f=="disease_id" else (data.get(f,"") or "") for f in fields]
+        if question_id:
+            self.conn.execute("UPDATE quiz_questions SET "+", ".join(f+"=?" for f in fields)+", updated_at=? WHERE id=?",values+[now,int(question_id)])
+            result=int(question_id)
+        else:
+            cur=self.conn.execute("INSERT INTO quiz_questions ("+", ".join(fields)+",is_active,created_at,updated_at) VALUES ("+", ".join(["?"]*len(fields))+",1,?,?)",values+[now,now]); result=cur.lastrowid
+        self.conn.commit(); return result
+
+    def quiz_question_delete(self, question_id):
+        self.conn.execute("DELETE FROM quiz_questions WHERE id=?",(int(question_id),)); self.conn.commit()
+
+    def quiz_question_count(self, disease_id=None):
+        if disease_id is None: return int(self.conn.execute("SELECT COUNT(*) FROM quiz_questions WHERE is_active=1").fetchone()[0])
+        return int(self.conn.execute("SELECT COUNT(*) FROM quiz_questions WHERE is_active=1 AND disease_id=?",(int(disease_id),)).fetchone()[0])
+
+    def quiz_session_save(self, mode,total,correct,wrong,blank,score,duration_seconds,details):
+        now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur=self.conn.execute("INSERT INTO quiz_sessions(mode,started_at,total_questions,correct_count,wrong_count,blank_count,score,duration_seconds,details_json) VALUES(?,?,?,?,?,?,?,?,?)",
+            (mode,now,int(total),int(correct),int(wrong),int(blank),float(score),int(duration_seconds),json.dumps(details,ensure_ascii=False)))
+        self.conn.commit(); return cur.lastrowid
+
+    def quiz_sessions(self, limit=100):
+        return self.conn.execute("SELECT * FROM quiz_sessions ORDER BY started_at DESC, id DESC LIMIT ?",(int(limit),)).fetchall()
+
+    def quiz_stats(self):
+        row=self.conn.execute("SELECT COUNT(*) sessions, COALESCE(SUM(total_questions),0) questions, COALESCE(ROUND(AVG(score),1),0) average_score FROM quiz_sessions").fetchone()
+        return dict(row)
 
     def backup_to(self, destination_db):
         target = sqlite3.connect(destination_db)
