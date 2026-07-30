@@ -538,6 +538,69 @@ class Database(object):
         )
         self.conn.commit()
 
+    def dashboard_stats(self):
+        row = self.conn.execute("""
+            SELECT
+              COUNT(*) AS total,
+              SUM(CASE WHEN favorite=1 THEN 1 ELSE 0 END) AS favorites,
+              SUM(CASE WHEN TRIM(scientific_name)='' THEN 1 ELSE 0 END) AS no_pathogen,
+              SUM(CASE WHEN TRIM(symptoms)='' THEN 1 ELSE 0 END) AS no_symptoms,
+              SUM(CASE WHEN TRIM(sources)='' THEN 1 ELSE 0 END) AS no_sources,
+              SUM(CASE WHEN
+                TRIM(scientific_name)<>'' AND TRIM(disease_name)<>'' AND TRIM(hosts)<>'' AND
+                TRIM(affected_organs)<>'' AND TRIM(symptoms)<>'' AND TRIM(pathogen_features)<>'' AND
+                TRIM(disease_cycle)<>'' AND TRIM(epidemiology)<>'' AND TRIM(differential_diagnosis)<>'' AND
+                TRIM(cultural_control)<>'' AND TRIM(biological_control)<>'' AND TRIM(chemical_control)<>'' AND
+                TRIM(sources)<>'' THEN 1 ELSE 0 END) AS complete
+            FROM diseases
+        """).fetchone()
+        no_photo = self.conn.execute("""
+            SELECT COUNT(*) FROM diseases d
+            WHERE NOT EXISTS (SELECT 1 FROM attachments a WHERE a.disease_id=d.id AND a.file_type='image')
+        """).fetchone()[0]
+        total = int(row["total"] or 0)
+        complete = int(row["complete"] or 0)
+        return {"total": total, "favorites": int(row["favorites"] or 0),
+                "no_pathogen": int(row["no_pathogen"] or 0), "no_symptoms": int(row["no_symptoms"] or 0),
+                "no_sources": int(row["no_sources"] or 0), "no_photo": int(no_photo or 0),
+                "complete": complete, "incomplete": max(0, total-complete)}
+
+    def _dashboard_base_sql(self):
+        return """SELECT d.*, (SELECT COUNT(*) FROM attachments a
+                  WHERE a.disease_id=d.id AND a.file_type='image') AS photo_count
+                  FROM diseases d"""
+
+    def dashboard_records(self, mode="recent", limit=100):
+        where = ""
+        if mode == "no_photo":
+            where = " WHERE NOT EXISTS (SELECT 1 FROM attachments a WHERE a.disease_id=d.id AND a.file_type='image')"
+        elif mode == "no_sources": where = " WHERE TRIM(d.sources)=''"
+        elif mode == "no_pathogen": where = " WHERE TRIM(d.scientific_name)=''"
+        elif mode == "no_symptoms": where = " WHERE TRIM(d.symptoms)=''"
+        elif mode == "favorites": where = " WHERE d.favorite=1"
+        complete_condition = """TRIM(d.scientific_name)<>'' AND TRIM(d.disease_name)<>'' AND TRIM(d.hosts)<>'' AND
+            TRIM(d.affected_organs)<>'' AND TRIM(d.symptoms)<>'' AND TRIM(d.pathogen_features)<>'' AND
+            TRIM(d.disease_cycle)<>'' AND TRIM(d.epidemiology)<>'' AND TRIM(d.differential_diagnosis)<>'' AND
+            TRIM(d.cultural_control)<>'' AND TRIM(d.biological_control)<>'' AND TRIM(d.chemical_control)<>'' AND TRIM(d.sources)<>''"""
+        if mode == "complete": where = " WHERE " + complete_condition
+        elif mode == "incomplete": where = " WHERE NOT (" + complete_condition + ")"
+        order = " ORDER BY d.updated_at DESC, d.scientific_name COLLATE NOCASE"
+        return self.conn.execute(self._dashboard_base_sql()+where+order+" LIMIT ?", (int(limit),)).fetchall()
+
+    def super_search(self, query, limit=100):
+        query = (query or "").strip()
+        if not query: return self.dashboard_records("recent", limit)
+        like = "%" + query + "%"
+        fields = ["d.group_name","d.scientific_name","d.synonyms","d.disease_name","d.hosts",
+                  "d.affected_organs","d.symptoms","d.pathogen_features","d.disease_cycle","d.epidemiology",
+                  "d.differential_diagnosis","d.cultural_control","d.biological_control","d.chemical_control",
+                  "d.distribution_turkey","d.distribution_world","d.climate_notes","d.sources","d.notes"]
+        clause = " OR ".join(field+" LIKE ?" for field in fields)
+        clause += " OR EXISTS (SELECT 1 FROM attachments ax WHERE ax.disease_id=d.id AND (ax.title LIKE ? OR ax.description LIKE ? OR ax.source LIKE ? OR ax.relative_path LIKE ?))"
+        params = [like]*len(fields) + [like]*4 + [int(limit)]
+        sql = self._dashboard_base_sql()+" WHERE ("+clause+") ORDER BY d.updated_at DESC LIMIT ?"
+        return self.conn.execute(sql, params).fetchall()
+
     def backup_to(self, destination_db):
         target = sqlite3.connect(destination_db)
         try:

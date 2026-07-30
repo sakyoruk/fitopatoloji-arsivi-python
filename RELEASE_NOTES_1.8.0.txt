@@ -1,0 +1,11 @@
+Fitopatoloji Arşivi 1.8.0 — Akıllı Ana Sayfa ve Çalışma Merkezi
+
+- Program açılışında Çalışma Merkezi
+- Toplam, tam, fotoğrafsız, kaynakçasız ve favori kayıt kartları
+- Son düzenlenen kayıtlar ve kayıt kalite durumu
+- Arşiv Denetimi: fotoğraf, kaynakça, etmen ve belirti eksikleri
+- Tamamlanmış / tamamlanması gereken kayıt filtreleri
+- Etmen, hastalık, konukçu, organ, belirti, kaynakça ve fotoğraf açıklamalarında Süper Arama
+- Ctrl+K Hızlı Komut Paleti
+- Çalışma merkezinden tek tıklamayla kayda dönme ve yeni kayıt açma
+- Windows 7 ve mevcut veritabanlarıyla uyumlu veri tabanı sorguları

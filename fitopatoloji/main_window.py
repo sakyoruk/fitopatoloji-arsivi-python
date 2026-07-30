@@ -5,6 +5,7 @@ from .gallery import PhotoGallery
 from .comparison import DiseaseComparison
 from .preview import DiseasePreview
 from .photo_manager import PhotoManager, PhotoImportDialog
+from .dashboard import Dashboard
 from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
 
@@ -39,9 +40,68 @@ class MainWindow(tk.Tk):
         self.attachment_thumbnail_refs = []
         self.thumbnail_items = {}
 
+        self.dashboard_window = None
         self.build_ui()
         self.refresh_groups()
         self.refresh_list()
+        self.bind_all("<Control-k>", lambda _e: self.open_command_palette())
+        self.after(500, self.open_dashboard)
+
+    def open_dashboard(self):
+        try:
+            if self.dashboard_window and self.dashboard_window.winfo_exists():
+                self.dashboard_window.lift(); self.dashboard_window.focus_force(); return
+        except Exception:
+            pass
+        self.dashboard_window = Dashboard(self, self.db, self.open_record_by_id, self.new_record, self.open_command_palette)
+
+    def open_record_by_id(self, disease_id):
+        self.search_var.set("")
+        self.group_var.set("TÜMÜ")
+        self.host_filter = self.organ_filter = self.symptom_filter = ""
+        self.favorites_only_var.set(False)
+        self.refresh_list(select_id=disease_id)
+        self.lift(); self.focus_force()
+
+    def open_command_palette(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("Hızlı komutlar")
+        dialog.geometry("520x430")
+        dialog.transient(self)
+        query = tk.StringVar()
+        frame = ttk.Frame(dialog, padding=14); frame.pack(fill="both", expand=True)
+        entry = ttk.Entry(frame, textvariable=query, font=("Segoe UI", 11)); entry.pack(fill="x")
+        tree = ttk.Treeview(frame, columns=("hint",), show="tree headings", selectmode="browse")
+        tree.heading("#0", text="Komut"); tree.heading("hint", text="İşlem")
+        tree.column("#0", width=280); tree.column("hint", width=170)
+        tree.pack(fill="both", expand=True, pady=(10, 0))
+        commands = [
+            ("dashboard", "Çalışma merkezini aç", "Arşiv özeti", self.open_dashboard),
+            ("new", "Yeni hastalık kaydı", "Kayıt oluştur", self.new_record),
+            ("edit", "Seçili kaydı düzenle", "Düzenleyici", self.edit_record),
+            ("preview", "Seçili kaydı incele", "Önizleme", self.preview_record),
+            ("photos", "Fotoğraf yöneticisini aç", "Görsel katalog", self.open_photo_manager),
+            ("compare", "Hastalıkları karşılaştır", "Karşılaştırma", self.open_comparison),
+            ("diagnose", "Teşhis sihirbazını aç", "Tanı desteği", self.open_diagnosis_wizard),
+            ("pdf", "PDF raporu oluştur", "Dışa aktar", self.export_pdf_report),
+            ("backup", "Yedek oluştur", "Güvenlik", self.create_backup),
+            ("duplicates", "Benzer kayıtları bul", "Arşiv denetimi", self.find_duplicates),
+        ]
+        def fill(*_args):
+            text=query.get().strip().lower(); tree.delete(*tree.get_children())
+            for key,title,hint,func in commands:
+                if not text or text in title.lower() or text in hint.lower(): tree.insert("","end",iid=key,text=title,values=(hint,))
+            kids=tree.get_children()
+            if kids: tree.selection_set(kids[0])
+        def run(_event=None):
+            sel=tree.selection()
+            if not sel:return
+            key=sel[0]; dialog.destroy()
+            for item in commands:
+                if item[0]==key: self.after(20,item[3]); break
+        query.trace_add("write",fill) if hasattr(query,"trace_add") else query.trace("w",fill)
+        fill(); tree.bind("<Double-1>",run); dialog.bind("<Return>",run); dialog.bind("<Escape>",lambda _e:dialog.destroy())
+        entry.focus_set()
 
     def maximize_window(self):
         try:
@@ -66,6 +126,7 @@ class MainWindow(tk.Tk):
         ttk.Label(nav, text="Fitopatoloji", style="NavTitle.TLabel").pack(anchor="w", padx=16, pady=(18, 0))
         ttk.Label(nav, text="ARŞİVİ  •  v{}".format(APP_VERSION), style="NavSub.TLabel").pack(anchor="w", padx=16, pady=(1, 18))
 
+        ttk.Button(nav, text="⌂  Çalışma merkezi", style="Nav.TButton", command=self.open_dashboard).pack(fill="x")
         ttk.Button(nav, text="＋  Yeni kayıt", style="Nav.TButton", command=self.new_record).pack(fill="x")
         ttk.Button(nav, text="✎  Kaydı düzenle", style="Nav.TButton", command=self.edit_record).pack(fill="x")
         ttk.Button(nav, text="▤  İncele", style="Nav.TButton", command=self.preview_record).pack(fill="x")
