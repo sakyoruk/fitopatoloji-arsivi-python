@@ -6,6 +6,7 @@ from .comparison import DiseaseComparison
 from .preview import DiseasePreview
 from .photo_manager import PhotoManager, PhotoImportDialog
 from .dashboard import Dashboard
+from .disease_file import DiseaseFile
 from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
 
@@ -79,6 +80,7 @@ class MainWindow(tk.Tk):
             ("dashboard", "Çalışma merkezini aç", "Arşiv özeti", self.open_dashboard),
             ("new", "Yeni hastalık kaydı", "Kayıt oluştur", self.new_record),
             ("edit", "Seçili kaydı düzenle", "Düzenleyici", self.edit_record),
+            ("file", "Dijital hastalık dosyasını aç", "Dosya görünümü", self.open_disease_file),
             ("preview", "Seçili kaydı incele", "Önizleme", self.preview_record),
             ("photos", "Fotoğraf yöneticisini aç", "Görsel katalog", self.open_photo_manager),
             ("compare", "Hastalıkları karşılaştır", "Karşılaştırma", self.open_comparison),
@@ -129,6 +131,7 @@ class MainWindow(tk.Tk):
         ttk.Button(nav, text="⌂  Çalışma merkezi", style="Nav.TButton", command=self.open_dashboard).pack(fill="x")
         ttk.Button(nav, text="＋  Yeni kayıt", style="Nav.TButton", command=self.new_record).pack(fill="x")
         ttk.Button(nav, text="✎  Kaydı düzenle", style="Nav.TButton", command=self.edit_record).pack(fill="x")
+        ttk.Button(nav, text="▣  Hastalık dosyası", style="Nav.TButton", command=self.open_disease_file).pack(fill="x")
         ttk.Button(nav, text="▤  İncele", style="Nav.TButton", command=self.preview_record).pack(fill="x")
         ttk.Button(nav, text="★  Favori", style="Nav.TButton", command=self.toggle_favorite).pack(fill="x")
         ttk.Button(nav, text="◷  Kayıt geçmişi", style="Nav.TButton", command=self.open_history).pack(fill="x")
@@ -208,7 +211,8 @@ class MainWindow(tk.Tk):
         ttk.Label(heading_box, textvariable=self.header_group, style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
         record_actions = ttk.Frame(record_header, style="Surface.TFrame")
         record_actions.pack(side="right")
-        ttk.Button(record_actions, text="İncele", style="Primary.TButton", command=self.preview_record).pack(side="left", padx=(0, 5))
+        ttk.Button(record_actions, text="Dosyayı Aç", style="Primary.TButton", command=self.open_disease_file).pack(side="left", padx=(0, 5))
+        ttk.Button(record_actions, text="İncele", command=self.preview_record).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Düzenle", command=self.edit_record).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Geçmiş", command=self.open_history).pack(side="left", padx=(0, 5))
         ttk.Button(record_actions, text="Sil", style="Danger.TButton", command=self.delete_record).pack(side="left")
@@ -471,6 +475,16 @@ class MainWindow(tk.Tk):
         self.db.save_rich_text(new_id, rich_data); self.db.save_tags(new_id, tags)
         self.refresh_groups()
         self.refresh_list(select_id=new_id)
+
+    def open_disease_file(self):
+        if not self.selected_id:
+            messagebox.showinfo(APP_NAME, "Önce bir hastalık kaydı seçin.", parent=self)
+            return
+        DiseaseFile(
+            self, self.db, self.paths, self.selected_id,
+            on_edit=self.edit_record, on_preview=self.preview_record,
+            on_pdf=self.export_pdf_report, on_photos=self.open_photo_manager,
+        )
 
     def preview_record(self):
         if not self.selected_id:

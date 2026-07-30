@@ -46,6 +46,11 @@ def apply_to_text_widget(widget, text, formatting, base_index='1.0', font_size=9
     widget.tag_configure('rt_italic', font=('Segoe UI', font_size, 'italic'))
     widget.tag_configure('rt_bold_italic', font=('Segoe UI', font_size, 'bold italic'))
     widget.tag_configure('rt_underline', underline=True)
+    widget.tag_configure('rt_superscript', offset=4, font=('Segoe UI', max(6, font_size-2)))
+    widget.tag_configure('rt_subscript', offset=-3, font=('Segoe UI', max(6, font_size-2)))
+    widget.tag_configure('rt_align_left', justify='left')
+    widget.tag_configure('rt_align_center', justify='center')
+    widget.tag_configure('rt_align_right', justify='right')
     spans = formatting_spans(text, formatting)
     boundaries = {0, len(text)}
     for a, b, _name, _color in spans:
@@ -75,11 +80,23 @@ def apply_to_text_widget(widget, text, formatting, base_index='1.0', font_size=9
             widget.tag_add('rt_italic', start, end)
         if 'underline' in names:
             widget.tag_add('rt_underline', start, end)
+        if 'superscript' in names:
+            widget.tag_add('rt_superscript', start, end)
+        if 'subscript' in names:
+            widget.tag_add('rt_subscript', start, end)
+        for align in ('align_left', 'align_center', 'align_right'):
+            if align in names:
+                widget.tag_add('rt_' + align, start, end)
         for name, color in active:
             if name.startswith('color_'):
                 value = color or ('#' + name.split('_', 1)[1])
                 tag = 'rt_' + name
                 widget.tag_configure(tag, foreground=value)
+                widget.tag_add(tag, start, end)
+            elif name.startswith('highlight_'):
+                value = color or ('#' + name.split('_', 1)[1])
+                tag = 'rt_' + name
+                widget.tag_configure(tag, background=value)
                 widget.tag_add(tag, start, end)
 
 
@@ -103,10 +120,19 @@ def to_html(text, formatting):
         value = html.escape(segment).replace('\n', '<br>')
         names = {name for name, _color in active}
         color = next((c or ('#' + n.split('_', 1)[1]) for n, c in active if n.startswith('color_')), None)
-        if color:
-            value = "<span style='color:{}'>".format(html.escape(color, quote=True)) + value + '</span>'
+        highlight = next((c or ('#' + n.split('_', 1)[1]) for n, c in active if n.startswith('highlight_')), None)
+        styles = []
+        if color: styles.append('color:'+html.escape(color, quote=True))
+        if highlight: styles.append('background-color:'+html.escape(highlight, quote=True))
+        if 'superscript' in names: styles.append('vertical-align:super;font-size:75%')
+        if 'subscript' in names: styles.append('vertical-align:sub;font-size:75%')
+        if styles: value = "<span style='{}'>".format(';'.join(styles)) + value + '</span>'
         if 'underline' in names:
             value = '<u>' + value + '</u>'
+        if 'superscript' in names:
+            value = '<super>' + value + '</super>'
+        if 'subscript' in names:
+            value = '<sub>' + value + '</sub>'
         if 'italic' in names:
             value = '<i>' + value + '</i>'
         if 'bold' in names:
@@ -123,10 +149,15 @@ def to_reportlab(text, formatting):
                  .replace('\r\n', '\n').replace('\r', '\n').replace('\n', '<br/>'))
         names = {name for name, _color in active}
         color = next((c or ('#' + n.split('_', 1)[1]) for n, c in active if n.startswith('color_')), None)
+        highlight = next((c or ('#' + n.split('_', 1)[1]) for n, c in active if n.startswith('highlight_')), None)
         if color and re.match(r'^#[0-9A-Fa-f]{6}$', color):
             value = '<font color="{}">'.format(color) + value + '</font>'
         if 'underline' in names:
             value = '<u>' + value + '</u>'
+        if 'superscript' in names:
+            value = '<super>' + value + '</super>'
+        if 'subscript' in names:
+            value = '<sub>' + value + '</sub>'
         if 'italic' in names:
             value = '<i>' + value + '</i>'
         if 'bold' in names:

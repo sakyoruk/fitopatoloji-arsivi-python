@@ -1,0 +1,27 @@
+Fitopatoloji Arşivi 1.10.1
+
+1.10.0 ve 1.10.1 birlikte hazırlanmıştır.
+
+Dijital Hastalık Dosyası
+- Hastalık bilgilerini kartlar halinde tek çalışma ekranında gösterir.
+- Başlık, bilimsel ad, grup, favori durumu ve tamamlanma oranı birlikte görünür.
+- Dosya özeti, etiketler, kaynakça ve fotoğraf sayıları gösterilir.
+- Kayıt geçmişi görsel zaman çizelgesine dönüştürülmüştür.
+- Alt bölümde düzenli, yatay fotoğraf şeridi bulunur.
+- Düzenle, İncele, PDF ve Fotoğraf Yöneticisi işlemlerine doğrudan erişilir.
+- Sol menüye ve kayıt işlem çubuğuna “Hastalık dosyası / Dosyayı Aç” komutları eklenmiştir.
+- Ctrl+K komut paletine dijital dosya komutu eklenmiştir.
+
+Zengin Metin Editörü 2.0
+- Kalın, italik ve altı çizili metne ek olarak üst simge ve alt simge desteği.
+- Madde işaretli ve numaralı liste oluşturma.
+- Sekmeyle ayrılmış bilimsel tablo şablonu ekleme.
+- α, β, γ, µ, °, ±, ≤, ≥ ve benzeri bilimsel semboller.
+- Metin rengi ve arka plan vurgusu.
+- Sol, orta ve sağ hizalama.
+- Ctrl+B, Ctrl+I ve Ctrl+U kısayolları.
+- Yeni biçimlerin bilgi görünümü, Dijital Hastalık Dosyası, İncele, HTML ve PDF dönüşümlerine aktarılması.
+
+Uyumluluk
+- Mevcut SQLite veritabanı yapısı korunmuştur.
+- Windows 7 SP1 x64 ve mevcut PyInstaller iş akışı hedeflenmiştir.
