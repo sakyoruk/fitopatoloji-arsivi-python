@@ -1,0 +1,6 @@
+Fitopatoloji Arşivi 2.0 RC3.1
+
+- GitHub Actions self-test hatası düzeltildi.
+- Self-test artık RC3 yapılandırılmış konukçu modeline uygun olarak konukçu kataloğu ve hastalık-konukçu ilişkisi oluşturuyor.
+- RC3 regresyon testleri unittest discover tarafından gerçekten çalıştırılacak biçime dönüştürüldü.
+- VERSION.txt içindeki eski RC2 sürüm bilgisi düzeltildi.

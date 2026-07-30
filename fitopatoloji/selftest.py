@@ -51,6 +51,21 @@ def self_test():
         assert db.get(new_id)["disease_name"] == "Güncel test hastalığı"
 
         # Arama ve teşhis testleri gerçek seed içeriğine bağlı olmamalı.
+        # RC3 ile konukçu filtresi yalnızca yapılandırılmış konukçu ilişkilerini
+        # kullanır; serbest metindeki ``hosts`` alanı filtre kaynağı değildir.
+        db.host_save(None, {
+            "taxon_level": "Tür",
+            "common_name": "Test konukçusu",
+            "scientific_name": "Testus hostus",
+            "family_name": "Testaceae",
+            "genus_name": "Testus",
+            "species_name": "hostus",
+            "alternative_names": "",
+            "notes": "Self-test konukçu kaydı",
+        })
+        host_id = db.host_list("Test konukçusu")[0]["id"]
+        db.disease_host_add(new_id, host_id)
+
         assert any(row["id"] == new_id for row in db.search("Testus exemplum"))
         assert any(row["id"] == new_id for row in db.search(host="Test konukçusu"))
         assert any(item[1]["id"] == new_id for item in db.diagnose(
