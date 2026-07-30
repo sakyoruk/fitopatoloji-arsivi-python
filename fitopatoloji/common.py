@@ -87,7 +87,7 @@ except ImportError:
     OPENPYXL_AVAILABLE = False
 
 APP_NAME = "Fitopatoloji Arşivi"
-APP_VERSION = "2.0.0 RC2"
+APP_VERSION = "2.0.0 RC3"
 
 LONG_FIELDS = [
     ("hosts", "Konukçular"),
@@ -114,6 +114,10 @@ ALL_DB_FIELDS = [
     "cultural_control", "biological_control", "chemical_control",
     "distribution_turkey", "distribution_world", "climate_notes",
     "sources", "notes", "favorite", "created_at", "updated_at", "deleted_at",
+    "agent_group", "domain_name", "kingdom_name", "phylum_name", "subphylum_name",
+    "class_name", "order_name", "family_name", "genus_name", "species_name",
+    "subspecies_name", "pathovar", "forma_specialis", "strain_name", "isolate_name",
+    "taxonomy_source", "taxonomy_accessed_at", "taxonomy_notes",
 ]
 
 

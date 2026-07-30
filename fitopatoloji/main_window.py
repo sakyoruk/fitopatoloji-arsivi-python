@@ -14,7 +14,8 @@ from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
 from .maintenance import MaintenanceCenter, SettingsDialog, SettingsStore, HelpCenter
 from .diagnostics import IssueReportDialog
-from .rc_shell import RibbonBar, ContextPanel, AboutDialog
+from .rc_shell import ContextPanel, AboutDialog
+from .catalogs import TaxonomyCatalog, HostCatalog
 
 class MainWindow(tk.Tk):
     def __init__(self, paths, database):
@@ -73,6 +74,12 @@ class MainWindow(tk.Tk):
     def open_issue_report(self):
         IssueReportDialog(self, self.db, self.paths)
 
+    def open_taxonomy_catalog(self):
+        TaxonomyCatalog(self, self.db)
+
+    def open_host_catalog(self):
+        HostCatalog(self, self.db)
+
     def open_dashboard(self):
         try:
             if self.dashboard_window and self.dashboard_window.winfo_exists():
@@ -129,6 +136,8 @@ class MainWindow(tk.Tk):
             ("edit", "Seçili kaydı düzenle", "Düzenleyici", self.edit_record),
             ("file", "Dijital hastalık dosyasını aç", "Dosya görünümü", self.open_disease_file),
             ("knowledge", "Bilimsel bilgi ağını aç", "İlişkiler ve indeks", self.open_knowledge_center),
+            ("taxonomy", "Taksonomi kataloğunu aç", "Etmen sınıflandırması", self.open_taxonomy_catalog),
+            ("hosts", "Konukçu kataloğunu aç", "Yapılandırılmış konukçular", self.open_host_catalog),
             ("preview", "Seçili kaydı incele", "Önizleme", self.preview_record),
             ("photos", "Fotoğraf yöneticisini aç", "Görsel katalog", self.open_photo_manager),
             ("compare", "Hastalıkları karşılaştır", "Karşılaştırma", self.open_comparison),
@@ -190,49 +199,28 @@ class MainWindow(tk.Tk):
         ttk.Label(nav, text="Fitopatoloji", style="NavTitle.TLabel").pack(anchor="w", padx=16, pady=(18, 0))
         ttk.Label(nav, text="ARŞİVİ  •  v{}".format(APP_VERSION), style="NavSub.TLabel").pack(anchor="w", padx=16, pady=(1, 18))
 
-        ttk.Button(nav, text="⌂  Çalışma merkezi", style="Nav.TButton", command=self.open_dashboard).pack(fill="x")
-        ttk.Button(nav, text="▦  Çalışma alanı", style="Nav.TButton", command=self.open_workspace).pack(fill="x")
-        ttk.Button(nav, text="▧  Monografi oluştur", style="Nav.TButton", command=self.open_monograph).pack(fill="x")
-        ttk.Button(nav, text="＋  Yeni kayıt", style="Nav.TButton", command=self.new_record).pack(fill="x")
-        ttk.Button(nav, text="✎  Kaydı düzenle", style="Nav.TButton", command=self.edit_record).pack(fill="x")
-        ttk.Button(nav, text="▣  Hastalık dosyası", style="Nav.TButton", command=self.open_disease_file).pack(fill="x")
-        ttk.Button(nav, text="▤  İncele", style="Nav.TButton", command=self.preview_record).pack(fill="x")
-        ttk.Button(nav, text="★  Favori", style="Nav.TButton", command=self.toggle_favorite).pack(fill="x")
-        ttk.Button(nav, text="◷  Kayıt geçmişi", style="Nav.TButton", command=self.open_history).pack(fill="x")
-        ttk.Button(nav, text="♲  Çöp kutusu", style="Nav.TButton", command=self.open_trash).pack(fill="x")
-        ttk.Button(nav, text="✓  Toplu işlemler", style="Nav.TButton", command=self.bulk_actions).pack(fill="x")
+        ttk.Label(nav, text="ARŞİV", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
+        ttk.Button(nav, text="⌂  Ana sayfa", style="Nav.TButton", command=self.open_dashboard).pack(fill="x")
+        ttk.Button(nav, text="▤  Hastalıklar", style="Nav.TButton", command=lambda: self.focus_force()).pack(fill="x")
+        ttk.Button(nav, text="⌘  Taksonomi", style="Nav.TButton", command=self.open_taxonomy_catalog).pack(fill="x")
+        ttk.Button(nav, text="♧  Konukçular", style="Nav.TButton", command=self.open_host_catalog).pack(fill="x")
+        ttk.Button(nav, text="▦  Fotoğraflar", style="Nav.TButton", command=self.open_photo_manager).pack(fill="x")
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
-        ttk.Button(nav, text="⌕  Gelişmiş filtre", style="Nav.TButton", command=self.open_advanced_filter).pack(fill="x")
+        ttk.Label(nav, text="ÇALIŞMA", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
+        ttk.Button(nav, text="⌕  Arama ve filtre", style="Nav.TButton", command=self.open_advanced_filter).pack(fill="x")
         ttk.Button(nav, text="✓  Teşhis sihirbazı", style="Nav.TButton", command=self.open_diagnosis_wizard).pack(fill="x")
         ttk.Button(nav, text="⇄  Karşılaştır", style="Nav.TButton", command=self.open_comparison).pack(fill="x")
         ttk.Button(nav, text="◉  Bilgi ağı", style="Nav.TButton", command=self.open_knowledge_center).pack(fill="x")
-        ttk.Button(nav, text="▥  İstatistik", style="Nav.TButton", command=self.open_statistics).pack(fill="x")
+        ttk.Button(nav, text="▦  Çalışma alanı", style="Nav.TButton", command=self.open_workspace).pack(fill="x")
+        ttk.Button(nav, text="▧  Monografi", style="Nav.TButton", command=self.open_monograph).pack(fill="x")
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
-        ttk.Button(nav, text="▣  PDF raporu", style="Nav.TButton", command=self.export_pdf_report).pack(fill="x")
-        ttk.Button(nav, text="▤  Excel aktar", style="Nav.TButton", command=self.export_excel).pack(fill="x")
+        ttk.Label(nav, text="SİSTEM", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
         ttk.Button(nav, text="⛁  Yedekleme", style="Nav.TButton", command=self.create_backup).pack(fill="x")
-        ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
-        ttk.Button(nav, text="⚙  Sistem bakımı", style="Nav.TButton", command=self.open_maintenance).pack(fill="x")
-        ttk.Button(nav, text="!  Sorun bildir", style="Nav.TButton", command=self.open_issue_report).pack(fill="x")
+        ttk.Button(nav, text="⚙  Bakım ve ayarlar", style="Nav.TButton", command=self.open_maintenance).pack(fill="x")
+        ttk.Button(nav, text="?  Yardım", style="Nav.TButton", command=self.open_help).pack(fill="x")
 
         content = ttk.Frame(shell)
         content.pack(side="left", fill="both", expand=True)
-
-        ribbon_commands = {
-            "new": self.new_record, "edit": self.edit_record, "file": self.open_disease_file,
-            "pdf": self.export_pdf_report, "excel": self.export_excel, "monograph": self.open_monograph,
-            "backup": self.create_backup, "maintenance": self.open_maintenance,
-            "preview": self.preview_record, "history": self.open_history, "favorite": self.toggle_favorite,
-            "previous": self.previous_record, "next": self.next_record, "filter": self.open_advanced_filter,
-            "bulk": self.bulk_actions, "trash": self.open_trash, "photos": self.open_photo_manager,
-            "add_photo": self.add_photo, "gallery": self.open_gallery, "knowledge": self.open_knowledge_center,
-            "compare": self.open_comparison, "diagnose": self.open_diagnosis_wizard,
-            "dashboard": self.open_dashboard, "workspace": self.open_workspace, "statistics": self.open_statistics,
-            "help": self.open_help, "settings": self.open_settings, "about": self.open_about, "issue": self.open_issue_report,
-            "palette": self.open_command_palette,
-        }
-        self.ribbon = RibbonBar(content, ribbon_commands)
-        self.ribbon.pack(fill="x")
 
         header = ttk.Frame(content, style="Header.TFrame", padding=(18, 10))
         header.pack(fill="x")
@@ -347,11 +335,20 @@ class MainWindow(tk.Tk):
                 self.detail_texts[field] = text
 
         attachment_frame = ttk.LabelFrame(right, text="Fotoğraflar ve belgeler", padding=8)
-        attachment_frame.pack(fill="x", pady=(10, 0))
+        attachment_frame.pack(fill="x", pady=(8, 0))
+
+        attach_toolbar = ttk.Frame(attachment_frame, style="Surface.TFrame")
+        attach_toolbar.pack(fill="x", pady=(0, 6))
+        ttk.Button(attach_toolbar, text="Fotoğraf yöneticisi", style="Primary.TButton", command=self.open_photo_manager).pack(side="left")
+        ttk.Button(attach_toolbar, text="Fotoğraf ekle", command=self.add_photo).pack(side="left", padx=(5,0))
+        ttk.Button(attach_toolbar, text="Belge ekle", command=self.add_document).pack(side="left", padx=(5,0))
+        ttk.Button(attach_toolbar, text="Galeri", command=self.open_gallery).pack(side="left", padx=(5,0))
+        ttk.Button(attach_toolbar, text="Aç", command=self.open_attachment).pack(side="right")
+        ttk.Button(attach_toolbar, text="Kaldır", style="Danger.TButton", command=self.remove_attachment).pack(side="right", padx=(0,5))
 
         catalog = ttk.Frame(attachment_frame, style="Surface.TFrame")
-        catalog.pack(fill="x", pady=(0, 7))
-        self.thumbnail_canvas = tk.Canvas(catalog, height=116, highlightthickness=0, background="#ffffff")
+        catalog.pack(fill="x", pady=(0, 6))
+        self.thumbnail_canvas = tk.Canvas(catalog, height=92, highlightthickness=0, background="#ffffff")
         thumb_scroll = ttk.Scrollbar(catalog, orient="horizontal", command=self.thumbnail_canvas.xview)
         self.thumbnail_canvas.configure(xscrollcommand=thumb_scroll.set)
         self.thumbnail_canvas.pack(fill="x")
@@ -360,22 +357,16 @@ class MainWindow(tk.Tk):
         self.thumbnail_window = self.thumbnail_canvas.create_window((0, 0), window=self.thumbnail_inner, anchor="nw")
         self.thumbnail_inner.bind("<Configure>", lambda _e: self.thumbnail_canvas.configure(scrollregion=self.thumbnail_canvas.bbox("all")))
 
-        self.attach_tree = ttk.Treeview(attachment_frame, columns=("type", "name", "description"), show="headings", height=3)
+        tree_host = ttk.Frame(attachment_frame, style="Surface.TFrame")
+        tree_host.pack(fill="x")
+        self.attach_tree = ttk.Treeview(tree_host, columns=("type", "name", "description"), show="headings", height=2)
         self.attach_tree.heading("type", text="Tür")
         self.attach_tree.heading("name", text="Dosya")
         self.attach_tree.heading("description", text="Açıklama")
         self.attach_tree.column("type", width=70)
         self.attach_tree.column("name", width=250)
         self.attach_tree.column("description", width=310)
-        self.attach_tree.pack(side="left", fill="x", expand=True)
-        attach_buttons = ttk.Frame(attachment_frame, style="Surface.TFrame")
-        attach_buttons.pack(side="right", fill="y", padx=(8, 0))
-        ttk.Button(attach_buttons, text="Fotoğraf yöneticisi", style="Primary.TButton", command=self.open_photo_manager).pack(fill="x")
-        ttk.Button(attach_buttons, text="Hızlı fotoğraf ekle", command=self.add_photo).pack(fill="x", pady=(4, 0))
-        ttk.Button(attach_buttons, text="Belge ekle", command=self.add_document).pack(fill="x", pady=(4, 0))
-        ttk.Button(attach_buttons, text="Galeri", command=self.open_gallery).pack(fill="x", pady=(4, 0))
-        ttk.Button(attach_buttons, text="Aç", command=self.open_attachment).pack(fill="x", pady=4)
-        ttk.Button(attach_buttons, text="Kaldır", style="Danger.TButton", command=self.remove_attachment).pack(fill="x")
+        self.attach_tree.pack(fill="x", expand=True)
         self.attach_tree.bind("<Double-1>", self.on_attachment_double_click)
 
         status = ttk.Label(content, textvariable=self.status_var, anchor="w", style="Status.TLabel")
@@ -563,11 +554,13 @@ class MainWindow(tk.Tk):
         groups = self.db.list_groups(); key="new"
         draft=self.db.get_draft(key); initial=None; rich=None
         if draft and messagebox.askyesno(APP_NAME, "{} tarihli kaydedilmemiş yeni kayıt taslağı bulundu. Kurtarılsın mı?".format(draft["updated_at"]), parent=self): initial=draft["data"]; rich=draft["rich"]
-        DiseaseEditor(self, groups, initial=initial, rich_initial=rich, on_save=self._save_new, on_draft=self.db.save_draft, draft_key=key, on_saved=self.db.delete_draft)
+        DiseaseEditor(self, groups, initial=initial, rich_initial=rich, on_save=self._save_new, on_draft=self.db.save_draft, draft_key=key, on_saved=self.db.delete_draft, database=self.db)
 
     def _save_new(self, data):
         rich_data = data.pop("_rich_text", {}); tags=[x.strip() for x in data.pop("_tags", "").replace(";", ",").split(",") if x.strip()]
+        host_ids = data.pop("_host_ids", [])
         new_id = self.db.add(data)
+        for host_id in host_ids: self.db.disease_host_add(new_id, int(host_id))
         self.db.save_rich_text(new_id, rich_data); self.db.save_tags(new_id, tags)
         self.refresh_groups()
         self.refresh_list(select_id=new_id)
@@ -596,14 +589,22 @@ class MainWindow(tk.Tk):
             messagebox.showinfo(APP_NAME, "Önce bir kayıt seçin.", parent=self)
             return
         record = dict(self.db.get(self.selected_id)); record["_tags"] = ", ".join(self.db.tags(self.selected_id))
+        record["_host_ids"] = [int(r["id"]) for r in self.db.disease_hosts(self.selected_id)]
+        record["hosts"] = self.db.disease_hosts_text(self.selected_id) or record.get("hosts", "")
         groups = self.db.list_groups(); key="edit:{}".format(self.selected_id)
         rich=self.db.rich_text(self.selected_id); draft=self.db.get_draft(key)
         if draft and messagebox.askyesno(APP_NAME, "{} tarihli kaydedilmemiş taslak bulundu. Kurtarılsın mı?".format(draft["updated_at"]), parent=self): record=draft["data"]; rich=draft["rich"]
-        DiseaseEditor(self, groups, initial=record, rich_initial=rich, on_save=self._save_edit, on_draft=self.db.save_draft, draft_key=key, on_saved=self.db.delete_draft)
+        DiseaseEditor(self, groups, initial=record, rich_initial=rich, on_save=self._save_edit, on_draft=self.db.save_draft, draft_key=key, on_saved=self.db.delete_draft, database=self.db)
 
     def _save_edit(self, data):
         rich_data = data.pop("_rich_text", {}); tags=[x.strip() for x in data.pop("_tags", "").replace(";", ",").split(",") if x.strip()]
+        host_ids = [int(x) for x in data.pop("_host_ids", [])]
         self.db.update(self.selected_id, data)
+        current_ids = [int(r["id"]) for r in self.db.disease_hosts(self.selected_id)]
+        for host_id in current_ids:
+            if host_id not in host_ids: self.db.disease_host_remove(self.selected_id, host_id)
+        for host_id in host_ids:
+            if host_id not in current_ids: self.db.disease_host_add(self.selected_id, host_id)
         self.db.save_rich_text(self.selected_id, rich_data); self.db.save_tags(self.selected_id, tags)
         self.refresh_groups()
         self.refresh_list(select_id=self.selected_id)

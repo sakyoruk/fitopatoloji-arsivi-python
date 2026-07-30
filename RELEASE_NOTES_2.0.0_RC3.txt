@@ -1,0 +1,23 @@
+Fitopatoloji Arşivi 2.0.0 RC3
+================================
+
+RC3 odağı: Taksonomi, yapılandırılmış konukçular ve birleşik navigasyon.
+
+Yeni özellikler
+- Etmen grubu ve genişletilmiş taksonomi alanları.
+- Bağımsız Taksonomi Kataloğu.
+- Familya, cins, tür, çeşit ve grup düzeylerini destekleyen Konukçu Kataloğu.
+- Hastalık-konukçu ilişkileri için ayrı veritabanı tabloları.
+- Konukçu filtresinde serbest metin yerine yapılandırılmış ilişki araması.
+- Hastalık düzenleyicide katalogdan konukçu seçimi.
+
+Arayüz
+- Tekrarlanan üst komut şeridi kaldırıldı.
+- Sol menü ARŞİV / ÇALIŞMA / SİSTEM başlıkları altında sadeleştirildi.
+- Fotoğraf ve belge düğmeleri alt kenardan bölümün üst araç çubuğuna taşındı.
+- Düşük çözünürlüklerde kesilen fotoğraf düğmeleri düzeltildi.
+
+Veritabanı
+- Şema sürümü 20003.
+- taxonomy_catalog, host_catalog ve disease_hosts tabloları eklendi.
+- Eski veritabanlarında yeni alanlar güvenli ve tekrarlanabilir biçimde oluşturulur.

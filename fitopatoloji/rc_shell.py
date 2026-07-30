@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""2.0 RC2 arayüz bileşenleri.
+"""2.0 RC3 arayüz bileşenleri.
 
 Windows 7 uyumluluğu için yalnızca tkinter/ttk kullanır.
 """
@@ -132,11 +132,11 @@ class AboutDialog(tk.Toplevel):
         mark.create_arc(18, 19, 48, 55, start=280, extent=150, style="arc", outline="#ffffff", width=4)
         mark.create_arc(29, 15, 60, 52, start=110, extent=150, style="arc", outline="#ffffff", width=4)
         ttk.Label(frame, text=APP_NAME, style="AboutTitle.TLabel").pack(pady=(6, 2))
-        ttk.Label(frame, text="Sürüm {} — Release Candidate 2".format(APP_VERSION), style="Muted.TLabel").pack()
+        ttk.Label(frame, text="Sürüm {} — Release Candidate 3".format(APP_VERSION), style="Muted.TLabel").pack()
         ttk.Label(frame, text="Bitki hastalıkları için yerel, çevrimdışı ve araştırmacı odaklı bilimsel arşiv.", style="Surface.TLabel", wraplength=430, justify="center").pack(pady=(18, 8))
         ttk.Label(frame, text="Python • Tkinter • SQLite\nWindows 7 SP1 x64 uyumlu masaüstü yapı", style="Muted.TLabel", justify="center").pack()
         ttk.Separator(frame).pack(fill="x", pady=18)
-        ttk.Label(frame, text="2.0 RC2; yeni komut şeridi, akıllı kayıt önerileri, tutarlı uygulama kimliği ve sağlamlaştırılmış açılış deneyimini içerir.", style="Surface.TLabel", wraplength=430, justify="center").pack()
+        ttk.Label(frame, text="2.0 RC3; birleşik navigasyon, yapılandırılmış konukçu kataloğu, genişletilmiş taksonomi ve düşük çözünürlük yerleşim düzeltmelerini içerir.", style="Surface.TLabel", wraplength=430, justify="center").pack()
         ttk.Button(frame, text="Kapat", style="Primary.TButton", command=self.destroy).pack(pady=(18, 0))
 
 
@@ -156,7 +156,7 @@ class SplashScreen(tk.Toplevel):
         canvas.create_arc(65, 64, 105, 112, start=285, extent=140, style="arc", outline="#ffffff", width=5)
         canvas.create_arc(82, 58, 122, 108, start=105, extent=145, style="arc", outline="#ffffff", width=5)
         canvas.create_text(156, 75, text="Fitopatoloji Arşivi", anchor="w", fill="#ffffff", font=("Segoe UI", 23, "bold"))
-        canvas.create_text(157, 112, text="Bilimsel Masaüstü • 2.0 RC2", anchor="w", fill="#b9cad8", font=("Segoe UI", 11))
+        canvas.create_text(157, 112, text="Bilimsel Masaüstü • 2.0 RC3", anchor="w", fill="#b9cad8", font=("Segoe UI", 11))
         canvas.create_line(55, 178, 465, 178, fill="#35536c")
         canvas.create_text(55, 207, text="Arşiv hazırlanıyor…", anchor="w", fill="#dfe9f0", font=("Segoe UI", 10))
         self.progress = ttk.Progressbar(self, mode="indeterminate", length=410)

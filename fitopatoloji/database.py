@@ -2,7 +2,7 @@
 from .common import *
 
 class Database(object):
-    SCHEMA_VERSION = 20002
+    SCHEMA_VERSION = 20003
 
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
@@ -102,6 +102,37 @@ class Database(object):
             CREATE INDEX IF NOT EXISTS idx_attachments_disease ON attachments(disease_id);
             CREATE INDEX IF NOT EXISTS idx_references_disease ON disease_references(disease_id);
 
+            CREATE TABLE IF NOT EXISTS taxonomy_catalog (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rank TEXT NOT NULL, name TEXT NOT NULL, parent_name TEXT NOT NULL DEFAULT '',
+                synonyms TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                UNIQUE(rank, name)
+            );
+            CREATE INDEX IF NOT EXISTS idx_taxonomy_rank_name ON taxonomy_catalog(rank, name COLLATE NOCASE);
+
+            CREATE TABLE IF NOT EXISTS host_catalog (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                taxon_level TEXT NOT NULL DEFAULT 'Tür',
+                common_name TEXT NOT NULL DEFAULT '', scientific_name TEXT NOT NULL DEFAULT '',
+                family_name TEXT NOT NULL DEFAULT '', genus_name TEXT NOT NULL DEFAULT '',
+                species_name TEXT NOT NULL DEFAULT '', alternative_names TEXT NOT NULL DEFAULT '',
+                notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_host_scientific_unique ON host_catalog(scientific_name COLLATE NOCASE) WHERE TRIM(scientific_name)<>'';
+            CREATE INDEX IF NOT EXISTS idx_host_common ON host_catalog(common_name COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_host_family ON host_catalog(family_name COLLATE NOCASE);
+
+            CREATE TABLE IF NOT EXISTS disease_hosts (
+                disease_id INTEGER NOT NULL, host_id INTEGER NOT NULL,
+                relation_type TEXT NOT NULL DEFAULT 'Doğal konukçu',
+                scope_type TEXT NOT NULL DEFAULT 'Doğrudan',
+                relation_note TEXT NOT NULL DEFAULT '', is_excluded INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(disease_id, host_id, relation_type, is_excluded),
+                FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE CASCADE,
+                FOREIGN KEY(host_id) REFERENCES host_catalog(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_disease_hosts_host ON disease_hosts(host_id, disease_id);
+
             CREATE TABLE IF NOT EXISTS disease_rich_text (
                 disease_id INTEGER NOT NULL,
                 field_name TEXT NOT NULL,
@@ -158,6 +189,24 @@ class Database(object):
             ("climate_notes", "TEXT NOT NULL DEFAULT ''"),
             ("favorite", "INTEGER NOT NULL DEFAULT 0"),
             ("deleted_at", "TEXT NOT NULL DEFAULT ''"),
+            ("agent_group", "TEXT NOT NULL DEFAULT ''"),
+            ("domain_name", "TEXT NOT NULL DEFAULT ''"),
+            ("kingdom_name", "TEXT NOT NULL DEFAULT ''"),
+            ("phylum_name", "TEXT NOT NULL DEFAULT ''"),
+            ("subphylum_name", "TEXT NOT NULL DEFAULT ''"),
+            ("class_name", "TEXT NOT NULL DEFAULT ''"),
+            ("order_name", "TEXT NOT NULL DEFAULT ''"),
+            ("family_name", "TEXT NOT NULL DEFAULT ''"),
+            ("genus_name", "TEXT NOT NULL DEFAULT ''"),
+            ("species_name", "TEXT NOT NULL DEFAULT ''"),
+            ("subspecies_name", "TEXT NOT NULL DEFAULT ''"),
+            ("pathovar", "TEXT NOT NULL DEFAULT ''"),
+            ("forma_specialis", "TEXT NOT NULL DEFAULT ''"),
+            ("strain_name", "TEXT NOT NULL DEFAULT ''"),
+            ("isolate_name", "TEXT NOT NULL DEFAULT ''"),
+            ("taxonomy_source", "TEXT NOT NULL DEFAULT ''"),
+            ("taxonomy_accessed_at", "TEXT NOT NULL DEFAULT ''"),
+            ("taxonomy_notes", "TEXT NOT NULL DEFAULT ''"),
         ]:
             if column_name not in disease_columns:
                 self.conn.execute("ALTER TABLE diseases ADD COLUMN {} {}".format(column_name, definition))
@@ -241,8 +290,8 @@ class Database(object):
             clauses.append("(" + " OR ".join([field + " LIKE ?" for field in searchable]) + ")")
             params.extend([like] * len(searchable))
         if host:
-            clauses.append("hosts LIKE ?")
-            params.append("%" + host + "%")
+            clauses.append("EXISTS (SELECT 1 FROM disease_hosts dh JOIN host_catalog hc ON hc.id=dh.host_id WHERE dh.disease_id=diseases.id AND dh.is_excluded=0 AND (hc.common_name LIKE ? OR hc.scientific_name LIKE ? OR hc.family_name LIKE ? OR hc.genus_name LIKE ? OR hc.alternative_names LIKE ?))")
+            params.extend(["%" + host + "%"] * 5)
         if organ:
             clauses.append("affected_organs LIKE ?")
             params.append("%" + organ + "%")
@@ -257,6 +306,66 @@ class Database(object):
             " ORDER BY scientific_name COLLATE NOCASE, disease_name COLLATE NOCASE"
         )
         return self.conn.execute(sql, params).fetchall()
+
+    def taxonomy_list(self):
+        return self.conn.execute("SELECT * FROM taxonomy_catalog ORDER BY rank COLLATE NOCASE, name COLLATE NOCASE").fetchall()
+
+    def taxonomy_get(self, taxon_id):
+        return self.conn.execute("SELECT * FROM taxonomy_catalog WHERE id=?", (taxon_id,)).fetchone()
+
+    def taxonomy_save(self, taxon_id, rank, name, parent_name="", synonyms=""):
+        if taxon_id:
+            self.conn.execute("UPDATE taxonomy_catalog SET rank=?, name=?, parent_name=?, synonyms=? WHERE id=?", (rank.strip(),name.strip(),parent_name.strip(),synonyms.strip(),taxon_id))
+        else:
+            self.conn.execute("INSERT INTO taxonomy_catalog(rank,name,parent_name,synonyms) VALUES(?,?,?,?)", (rank.strip(),name.strip(),parent_name.strip(),synonyms.strip()))
+        self.conn.commit()
+
+    def taxonomy_delete(self, taxon_id):
+        self.conn.execute("DELETE FROM taxonomy_catalog WHERE id=?", (taxon_id,)); self.conn.commit()
+
+    def host_list(self, query=""):
+        q=(query or "").strip()
+        if q:
+            like="%"+q+"%"
+            return self.conn.execute("SELECT * FROM host_catalog WHERE common_name LIKE ? OR scientific_name LIKE ? OR family_name LIKE ? OR genus_name LIKE ? OR alternative_names LIKE ? ORDER BY scientific_name COLLATE NOCASE, common_name COLLATE NOCASE", (like,like,like,like,like)).fetchall()
+        return self.conn.execute("SELECT * FROM host_catalog ORDER BY scientific_name COLLATE NOCASE, common_name COLLATE NOCASE").fetchall()
+
+    def host_get(self, host_id):
+        return self.conn.execute("SELECT * FROM host_catalog WHERE id=?", (host_id,)).fetchone()
+
+    def host_save(self, host_id, data):
+        now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        fields=("taxon_level","common_name","scientific_name","family_name","genus_name","species_name","alternative_names","notes")
+        vals=[data.get(k,"") for k in fields]
+        if host_id:
+            self.conn.execute("UPDATE host_catalog SET "+", ".join(k+"=?" for k in fields)+", updated_at=? WHERE id=?", vals+[now,host_id])
+        else:
+            self.conn.execute("INSERT INTO host_catalog("+", ".join(fields)+",created_at,updated_at) VALUES("+", ".join(["?"]*(len(fields)+2))+")", vals+[now,now])
+        self.conn.commit()
+
+    def host_delete(self, host_id):
+        self.conn.execute("DELETE FROM host_catalog WHERE id=?", (host_id,)); self.conn.commit()
+
+    def disease_host_add(self, disease_id, host_id, relation_type="Doğal konukçu", scope_type="Doğrudan", note="", excluded=0):
+        self.conn.execute("INSERT OR REPLACE INTO disease_hosts(disease_id,host_id,relation_type,scope_type,relation_note,is_excluded) VALUES(?,?,?,?,?,?)", (disease_id,host_id,relation_type,scope_type,note,int(bool(excluded))))
+        self.conn.commit()
+
+    def disease_host_remove(self, disease_id, host_id):
+        self.conn.execute("DELETE FROM disease_hosts WHERE disease_id=? AND host_id=?", (disease_id,host_id)); self.conn.commit()
+
+    def disease_hosts(self, disease_id):
+        return self.conn.execute("SELECT hc.*, dh.relation_type, dh.scope_type, dh.relation_note, dh.is_excluded FROM disease_hosts dh JOIN host_catalog hc ON hc.id=dh.host_id WHERE dh.disease_id=? ORDER BY dh.is_excluded, hc.scientific_name COLLATE NOCASE, hc.common_name COLLATE NOCASE", (disease_id,)).fetchall()
+
+    def disease_hosts_text(self, disease_id):
+        rows=self.disease_hosts(disease_id)
+        included=[]; excluded=[]
+        for r in rows:
+            name=r["common_name"] or r["scientific_name"]
+            item="{} ({})".format(name,r["scientific_name"]) if r["common_name"] and r["scientific_name"] else name
+            (excluded if r["is_excluded"] else included).append(item)
+        text=", ".join(included)
+        if excluded: text += ("; " if text else "") + "Hariç: " + ", ".join(excluded)
+        return text
 
     def distinct_terms(self, field_name):
         allowed = {"hosts", "affected_organs", "symptoms"}

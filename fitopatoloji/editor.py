@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from .common import *
 from .richtext import RichTextEditor
+from .catalogs import AGENT_GROUPS, TAXON_RANKS, HostCatalog
 
 
 class DiseaseEditor(tk.Toplevel):
@@ -12,7 +13,7 @@ class DiseaseEditor(tk.Toplevel):
         "sources",
     ]
 
-    def __init__(self, master, groups, initial=None, rich_initial=None, on_save=None, on_draft=None, draft_key=None, on_saved=None):
+    def __init__(self, master, groups, initial=None, rich_initial=None, on_save=None, on_draft=None, draft_key=None, on_saved=None, database=None):
         tk.Toplevel.__init__(self, master)
         self.title("Kayıt düzenle" if initial else "Yeni kayıt")
         self.transient(master)
@@ -23,6 +24,8 @@ class DiseaseEditor(tk.Toplevel):
         self.on_draft = on_draft
         self.draft_key = draft_key
         self.on_saved = on_saved
+        self.db = database
+        self.selected_host_ids = list(self.initial.get("_host_ids", [])) if isinstance(self.initial, dict) else []
         self._draft_job = None
         self.vars = {}
         self.texts = {}
@@ -77,7 +80,9 @@ class DiseaseEditor(tk.Toplevel):
         control = ttk.Frame(notebook, padding=12)
         distribution = ttk.Frame(notebook, padding=12)
         references = ttk.Frame(notebook, padding=12)
+        taxonomy = ttk.Frame(notebook, padding=12)
         notebook.add(basic, text="Temel bilgiler")
+        notebook.add(taxonomy, text="Taksonomi")
         notebook.add(biology, text="Belirti ve biyoloji")
         notebook.add(control, text="Mücadele")
         notebook.add(distribution, text="Dağılım")
@@ -93,11 +98,10 @@ class DiseaseEditor(tk.Toplevel):
             ("scientific_name", "Bilimsel ad  *"),
             ("synonyms", "Sinonimler / eski adlar"),
             ("disease_name", "Hastalık adı  *"),
-            ("hosts", "Konukçular  •"),
             ("affected_organs", "Etkilenen organlar  •"),
         ]:
             ttk.Label(basic, text=label).grid(row=row, column=0, sticky="nw", pady=5)
-            if field in ("hosts", "affected_organs"):
+            if field == "affected_organs":
                 editor = RichTextEditor(basic, value=self.initial.get(field, "") or "", formatting=self.rich_initial.get(field, {}), height=4)
                 editor.grid(row=row, column=1, sticky="nsew", pady=5)
                 self.texts[field] = editor
@@ -108,9 +112,29 @@ class DiseaseEditor(tk.Toplevel):
                 entry.grid(row=row, column=1, sticky="ew", pady=5)
                 self.vars[field] = var
             row += 1
+        ttk.Label(basic, text="Konukçular  •").grid(row=row, column=0, sticky="nw", pady=5)
+        host_box = ttk.Frame(basic)
+        host_box.grid(row=row, column=1, sticky="ew", pady=5)
+        host_box.columnconfigure(0, weight=1)
+        self.hosts_var = tk.StringVar(value=self.initial.get("hosts", "") or "")
+        ttk.Entry(host_box, textvariable=self.hosts_var, state="readonly").grid(row=0, column=0, sticky="ew")
+        ttk.Button(host_box, text="Listeden seç", command=self._select_hosts).grid(row=0, column=1, padx=(6,0))
+        row += 1
         ttk.Label(basic, text="Etiketler").grid(row=row, column=0, sticky="w", pady=5)
         self.vars["_tags"] = tk.StringVar(value=self.initial.get("_tags", "") or "")
         ttk.Entry(basic, textvariable=self.vars["_tags"]).grid(row=row, column=1, sticky="ew", pady=5)
+
+        taxonomy.columnconfigure(1, weight=1)
+        tax_fields = [("agent_group", "Etmen grubu")] + TAXON_RANKS + [("taxonomy_source", "Taksonomi kaynağı"), ("taxonomy_accessed_at", "Erişim tarihi"), ("taxonomy_notes", "Taksonomi notu")]
+        for idx, (field, label) in enumerate(tax_fields):
+            ttk.Label(taxonomy, text=label).grid(row=idx, column=0, sticky="w", pady=4, padx=(0,10))
+            var = tk.StringVar(value=self.initial.get(field, "") or "")
+            if field == "agent_group":
+                widget = ttk.Combobox(taxonomy, textvariable=var, values=AGENT_GROUPS, state="normal")
+            else:
+                widget = ttk.Entry(taxonomy, textvariable=var)
+            widget.grid(row=idx, column=1, sticky="ew", pady=4)
+            self.vars[field] = var
 
         for frame, fields in [
             (biology, [("symptoms", "Belirtiler  •"), ("pathogen_features", "Etmenin özellikleri  •"), ("disease_cycle", "Hastalık döngüsü"), ("epidemiology", "Epidemiyoloji / uygun çevre koşulları  •"), ("differential_diagnosis", "Ayırıcı teşhis  •")]),
@@ -125,6 +149,22 @@ class DiseaseEditor(tk.Toplevel):
                 editor = RichTextEditor(frame, value=self.initial.get(field, "") or "", formatting=self.rich_initial.get(field, {}), height=6)
                 editor.grid(row=idx*2+1, column=0, sticky="nsew", pady=(0,7))
                 self.texts[field] = editor
+
+    def _select_hosts(self):
+        if not self.db:
+            messagebox.showinfo(APP_NAME, "Konukçu kataloğu kullanılamıyor.", parent=self)
+            return
+        def selected(rows):
+            self.selected_host_ids = [int(r["id"]) for r in rows]
+            names=[]
+            for r in rows:
+                if r["common_name"] and r["scientific_name"]:
+                    names.append("{} ({})".format(r["common_name"], r["scientific_name"]))
+                else:
+                    names.append(r["common_name"] or r["scientific_name"])
+            self.hosts_var.set(", ".join(names))
+            self.mark_dirty()
+        HostCatalog(self, self.db, select_mode=True, on_select=selected)
 
     def _bind_change_tracking(self):
         for var in self.vars.values():
@@ -166,6 +206,8 @@ class DiseaseEditor(tk.Toplevel):
 
     def _collect(self):
         data = {field: var.get().strip() for field, var in self.vars.items()}
+        data["hosts"] = self.hosts_var.get().strip() if hasattr(self, "hosts_var") else data.get("hosts", "")
+        data["_host_ids"] = list(self.selected_host_ids)
         rich_data = {}
         for field, editor in self.texts.items():
             data[field] = editor.get_value().strip()

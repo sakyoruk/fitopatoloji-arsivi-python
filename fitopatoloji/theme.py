@@ -42,6 +42,7 @@ def apply_theme(root):
     style.configure("Section.TLabel", background=COLORS["surface"], foreground=COLORS["text"], font=("Segoe UI", 10, "bold"))
     style.configure("NavTitle.TLabel", background=COLORS["nav"], foreground="#ffffff", font=("Segoe UI", 13, "bold"))
     style.configure("NavSub.TLabel", background=COLORS["nav"], foreground="#b9cad8", font=("Segoe UI", 8))
+    style.configure("NavSection.TLabel", background=COLORS["nav"], foreground="#90a9bc", font=("Segoe UI", 8, "bold"))
 
     style.configure("TButton", padding=(10, 6), borderwidth=1, background=COLORS["surface_alt"], foreground=COLORS["text"])
     style.map("TButton", background=[("active", "#e2e9ee"), ("pressed", "#d6e0e7")])
