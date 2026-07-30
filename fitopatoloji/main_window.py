@@ -52,6 +52,8 @@ class MainWindow(tk.Tk):
         self.summary_text = None
         self.attachment_thumbnail_refs = []
         self.thumbnail_items = {}
+        self.nav_buttons = {}
+        self.record_metric_vars = {key: tk.StringVar(value="0") for key in ("hosts", "literature", "photos", "questions")}
 
         self.dashboard_window = None
         self.workspace_window = None
@@ -214,35 +216,43 @@ class MainWindow(tk.Tk):
         shell = ttk.Frame(self)
         shell.pack(fill="both", expand=True)
 
-        nav = ttk.Frame(shell, style="Nav.TFrame", width=196)
+        nav = ttk.Frame(shell, style="Nav.TFrame", width=208)
         nav.pack(side="left", fill="y")
         nav.pack_propagate(False)
         ttk.Label(nav, text="Fitopatoloji", style="NavTitle.TLabel").pack(anchor="w", padx=16, pady=(18, 0))
         ttk.Label(nav, text="ARŞİVİ  •  v{}".format(APP_VERSION), style="NavSub.TLabel").pack(anchor="w", padx=16, pady=(1, 18))
 
+        def nav_item(key, text, command, active=False):
+            button = ttk.Button(nav, text=text, style="NavActive.TButton" if active else "Nav.TButton", command=command)
+            button.pack(fill="x")
+            self.nav_buttons[key] = button
+            return button
+
         ttk.Label(nav, text="ARŞİV", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
-        ttk.Button(nav, text="⌂  Ana sayfa", style="Nav.TButton", command=self.open_dashboard).pack(fill="x")
-        ttk.Button(nav, text="▤  Hastalıklar", style="Nav.TButton", command=lambda: self.focus_force()).pack(fill="x")
-        ttk.Button(nav, text="⌘  Taksonomi", style="Nav.TButton", command=self.open_taxonomy_catalog).pack(fill="x")
-        ttk.Button(nav, text="♧  Konukçular", style="Nav.TButton", command=self.open_host_catalog).pack(fill="x")
-        ttk.Button(nav, text="▥  Literatür", style="Nav.TButton", command=self.open_literature_catalog).pack(fill="x")
-        ttk.Button(nav, text="▦  Fotoğraflar", style="Nav.TButton", command=self.open_photo_manager).pack(fill="x")
+        nav_item("home", "  Ana sayfa", self.open_dashboard)
+        nav_item("diseases", "  Hastalıklar", lambda: self.focus_force(), active=True)
+        nav_item("taxonomy", "  Taksonomi", self.open_taxonomy_catalog)
+        nav_item("hosts", "  Konukçular", self.open_host_catalog)
+        nav_item("literature", "  Literatür", self.open_literature_catalog)
+        nav_item("photos", "  Fotoğraflar", self.open_photo_manager)
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
-        ttk.Label(nav, text="ÇALIŞMA", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
-        ttk.Button(nav, text="⌕  Arama ve filtre", style="Nav.TButton", command=self.open_advanced_filter).pack(fill="x")
-        ttk.Button(nav, text="✓  Teşhis sihirbazı", style="Nav.TButton", command=self.open_diagnosis_wizard).pack(fill="x")
-        ttk.Button(nav, text="⇄  Karşılaştır", style="Nav.TButton", command=self.open_comparison).pack(fill="x")
-        ttk.Button(nav, text="◉  Bilgi ağı", style="Nav.TButton", command=self.open_knowledge_center).pack(fill="x")
-        ttk.Button(nav, text="▦  Çalışma alanı", style="Nav.TButton", command=self.open_workspace).pack(fill="x")
-        ttk.Button(nav, text="✎  Özel notlar", style="Nav.TButton", command=self.open_private_notes).pack(fill="x")
-        ttk.Button(nav, text="▧  Monografi", style="Nav.TButton", command=self.open_monograph).pack(fill="x")
-        ttk.Button(nav, text="★  Bilgi sınavı", style="Nav.TButton", command=self.open_quiz_center).pack(fill="x")
-        ttk.Button(nav, text="▥  Bilimsel raporlar", style="Nav.TButton", command=self.open_reports_center).pack(fill="x")
+        ttk.Label(nav, text="ÖĞRENME VE ANALİZ", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
+        nav_item("search", "  Arama ve filtre", self.open_advanced_filter)
+        nav_item("diagnosis", "  Teşhis sihirbazı", self.open_diagnosis_wizard)
+        nav_item("compare", "  Karşılaştır", self.open_comparison)
+        nav_item("network", "  Bilgi ağı", self.open_knowledge_center)
+        nav_item("workspace", "  Çalışma alanı", self.open_workspace)
+        nav_item("notes", "  Özel notlar", self.open_private_notes)
+        nav_item("quiz", "  Bilgi sınavı", self.open_quiz_center)
+        ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
+        ttk.Label(nav, text="YAYIN", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
+        nav_item("monograph", "  Monografi", self.open_monograph)
+        nav_item("reports", "  Bilimsel raporlar", self.open_reports_center)
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
         ttk.Label(nav, text="SİSTEM", style="NavSection.TLabel").pack(anchor="w", padx=16, pady=(0, 4))
-        ttk.Button(nav, text="⛁  Yedekleme", style="Nav.TButton", command=self.create_backup).pack(fill="x")
-        ttk.Button(nav, text="⚙  Bakım ve ayarlar", style="Nav.TButton", command=self.open_maintenance).pack(fill="x")
-        ttk.Button(nav, text="?  Yardım", style="Nav.TButton", command=self.open_help).pack(fill="x")
+        nav_item("backup", "  Yedekleme", self.create_backup)
+        nav_item("maintenance", "  Bakım ve ayarlar", self.open_maintenance)
+        nav_item("help", "  Yardım", self.open_help)
 
         content = ttk.Frame(shell)
         content.pack(side="left", fill="both", expand=True)
@@ -273,10 +283,15 @@ class MainWindow(tk.Tk):
         self.context_panel = ContextPanel(insight_host, self.db, {"edit": self.edit_record, "preview": self.preview_record})
         self.context_panel.pack(fill="both", expand=True)
 
-        ttk.Label(left, text="Kayıtlar", style="Section.TLabel").pack(anchor="w", pady=(0, 8))
+        list_head = ttk.Frame(left, style="Surface.TFrame")
+        list_head.pack(fill="x", pady=(0, 8))
+        ttk.Label(list_head, text="Kayıtlar", style="Section.TLabel").pack(side="left")
+        self.list_count_label = ttk.Label(list_head, text="0 kayıt", style="Badge.TLabel")
+        self.list_count_label.pack(side="right")
         search_card = ttk.Frame(left, style="Surface.TFrame")
         search_card.pack(fill="x", pady=(0, 9))
-        search = ttk.Entry(search_card, textvariable=self.search_var)
+        ttk.Label(search_card, text="Arşivde ara", style="Muted.TLabel").pack(anchor="w", pady=(0, 4))
+        search = ttk.Entry(search_card, textvariable=self.search_var, font=("Segoe UI", 10))
         search.pack(fill="x")
         search.insert(0, "")
         search.bind("<KeyRelease>", lambda _e: self.after_idle(self.refresh_list))
@@ -302,6 +317,8 @@ class MainWindow(tk.Tk):
         yscroll.pack(side="right", fill="y")
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
         self.tree.bind("<Double-1>", lambda _e: self.edit_record())
+        self.tree.tag_configure("odd", background="#f7f9f6")
+        self.tree.tag_configure("even", background="#ffffff")
 
         record_header = ttk.Frame(right, style="Surface.TFrame")
         record_header.pack(fill="x", pady=(0, 10))
@@ -310,6 +327,13 @@ class MainWindow(tk.Tk):
         ttk.Label(heading_box, textvariable=self.header_scientific, style="Surface.TLabel", font=("Segoe UI", 14, "bold italic"), wraplength=650).pack(anchor="w")
         ttk.Label(heading_box, textvariable=self.header_disease, style="Muted.TLabel", font=("Segoe UI", 10), wraplength=650).pack(anchor="w", pady=(2, 0))
         ttk.Label(heading_box, textvariable=self.header_group, style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
+        metrics = ttk.Frame(record_header, style="Surface.TFrame")
+        metrics.pack(side="left", padx=(18, 8))
+        for idx, (key, label) in enumerate((("hosts", "Konukçu"), ("literature", "Kaynak"), ("photos", "Fotoğraf"), ("questions", "Soru"))):
+            box = ttk.Frame(metrics, style="Card.TFrame", padding=(9, 5))
+            box.grid(row=0, column=idx, padx=3)
+            ttk.Label(box, textvariable=self.record_metric_vars[key], style="MetricValue.TLabel").pack()
+            ttk.Label(box, text=label, style="MetricLabel.TLabel").pack()
         record_actions = ttk.Frame(record_header, style="Surface.TFrame")
         record_actions.pack(side="right")
         ttk.Button(record_actions, text="Dosyayı Aç", style="Primary.TButton", command=self.open_disease_file).pack(side="left", padx=(0, 5))
@@ -506,11 +530,13 @@ class MainWindow(tk.Tk):
             self.tree.delete(item)
         rows = self.db.search(self.search_var.get(), self.group_var.get(), self.host_filter, self.organ_filter, self.symptom_filter, self.favorites_only_var.get())
         selected_item = None
-        for row in rows:
-            item = self.tree.insert("", "end", iid=str(row["id"]), values=(("★ " if row["favorite"] else "") + row["scientific_name"], row["disease_name"]))
+        for index, row in enumerate(rows):
+            item = self.tree.insert("", "end", iid=str(row["id"]), values=(("★ " if row["favorite"] else "") + row["scientific_name"], row["disease_name"]), tags=(("even" if index % 2 == 0 else "odd"),))
             if current and int(row["id"]) == int(current):
                 selected_item = item
         self.status_var.set("{} kayıt gösteriliyor · veritabanında toplam {} kayıt".format(len(rows), self.db.count()))
+        try: self.list_count_label.configure(text="{} kayıt".format(len(rows)))
+        except Exception: pass
         if selected_item:
             self.tree.selection_set(selected_item)
             self.tree.focus(selected_item)
@@ -536,7 +562,14 @@ class MainWindow(tk.Tk):
         self.selected_id = disease_id
         self.header_scientific.set(record["scientific_name"])
         self.header_disease.set(record["disease_name"])
-        self.header_group.set(("★ " if record["favorite"] else "") + record["group_name"])
+        self.header_group.set(("Favori · " if record["favorite"] else "") + record["group_name"])
+        try:
+            self.record_metric_vars["hosts"].set(str(len(self.db.disease_hosts(disease_id))))
+            self.record_metric_vars["literature"].set(str(len(self.db.disease_literature(disease_id))))
+            self.record_metric_vars["photos"].set(str(sum(1 for a in self.db.attachments(disease_id) if a["file_type"] == "image")))
+            self.record_metric_vars["questions"].set(str(self.db.quiz_question_count(disease_id)))
+        except Exception:
+            for value in self.record_metric_vars.values(): value.set("—")
         self.refresh_summary_card(record)
         try:
             self.context_panel.show_record(record)
@@ -556,6 +589,7 @@ class MainWindow(tk.Tk):
         self.header_scientific.set("Kayıt bulunamadı")
         self.header_disease.set("")
         self.header_group.set("")
+        for value in self.record_metric_vars.values(): value.set("0")
         try:
             self.context_panel.clear()
         except Exception:

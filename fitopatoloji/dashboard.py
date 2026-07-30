@@ -86,13 +86,17 @@ class Dashboard(tk.Toplevel):
 
         cards = ttk.Frame(root)
         cards.pack(fill="x", pady=12)
+        for column in range(4): cards.columnconfigure(column, weight=1)
         self.card_labels = {}
-        for key, title in (("total", "Toplam kayıt"), ("complete", "Tam kayıt"), ("no_photo", "Fotoğrafsız"), ("no_sources", "Kaynakçasız"), ("favorites", "Favoriler")):
+        metrics = (("total", "Toplam kayıt"), ("complete", "Tam kayıt"), ("favorites", "Favoriler"),
+                   ("hosts", "Konukçular"), ("literature", "Literatür"), ("photos", "Fotoğraflar"),
+                   ("questions", "Sorular"), ("no_sources", "Kaynakçasız"))
+        for index, (key, title) in enumerate(metrics):
             card = ttk.Frame(cards, style="Card.TFrame", padding=(14, 10))
-            card.pack(side="left", fill="x", expand=True, padx=(0, 8) if key != "favorites" else 0)
-            value = ttk.Label(card, text="0", style="Surface.TLabel", font=("Segoe UI", 18, "bold"))
+            card.grid(row=index // 4, column=index % 4, sticky="ew", padx=(0, 8) if index % 4 != 3 else 0, pady=(0, 8))
+            value = ttk.Label(card, text="0", style="MetricValue.TLabel")
             value.pack(anchor="w")
-            ttk.Label(card, text=title, style="Muted.TLabel").pack(anchor="w")
+            ttk.Label(card, text=title, style="MetricLabel.TLabel").pack(anchor="w")
             self.card_labels[key] = value
 
         panes = ttk.Panedwindow(root, orient="horizontal")
@@ -138,6 +142,15 @@ class Dashboard(tk.Toplevel):
 
     def refresh_all(self):
         stats = self.db.dashboard_stats()
+        try:
+            stats.update({
+                "hosts": int(self.db.conn.execute("SELECT COUNT(*) FROM host_catalog").fetchone()[0]),
+                "literature": int(self.db.conn.execute("SELECT COUNT(*) FROM literature_catalog").fetchone()[0]),
+                "photos": int(self.db.conn.execute("SELECT COUNT(*) FROM attachments WHERE file_type='image'").fetchone()[0]),
+                "questions": int(self.db.quiz_question_count()),
+            })
+        except Exception:
+            pass
         for key, label in self.card_labels.items(): label.configure(text=str(stats.get(key, 0)))
         self.audit.delete(*self.audit.get_children())
         audit_rows = [

@@ -1,0 +1,11 @@
+Fitopatoloji Arşivi 2.0.0 RC10
+
+Görsel yenileme ve kullanılabilirlik sürümü.
+
+- Fitopatolojiye uygun bilimsel açık tema ve yenilenmiş renk sistemi
+- Bölümlere ayrılmış, seçili sayfayı belirgin gösteren sol navigasyon
+- Kayıt başlığında konukçu, kaynak, fotoğraf ve soru bilgi kartları
+- Geliştirilmiş kayıt listesi, sonuç rozeti ve alternatif satır tonları
+- Çalışma Merkezi'nde genişletilmiş arşiv metrikleri
+- Daha sade durum çubuğu, butonlar, sekmeler ve kart görünümleri
+- Windows 7 SP1 ve ttk uyumluluğu korunmuştur

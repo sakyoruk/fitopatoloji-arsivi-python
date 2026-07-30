@@ -1,0 +1,9 @@
+Fitopatoloji Arşivi 2.0.0 RC9
+
+- Monografi oluşturucuya DOCX dışa aktarımı eklendi.
+- Fotoğraf meta verileri genişletildi: fotoğrafçı, telif sahibi, lisans, ölçek ve çekim yeri.
+- Bilimsel raporlar merkezi eklendi.
+- Etmen grubu, konukçu familyası, konukçu sayısı, literatür, fotoğraf ve soru bankası raporları eklendi.
+- Raporlar CSV olarak dışa aktarılabilir.
+- Büyük veri tabanları için yeni indeksler eklendi.
+- Şema sürümü 20010'a yükseltildi.
