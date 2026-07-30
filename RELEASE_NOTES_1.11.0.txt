@@ -1,0 +1,11 @@
+Fitopatoloji Arşivi 1.11.0 — Bilimsel Bilgi Ağı
+
+- Seçili hastalık için açıklanabilir ilgili hastalık önerileri
+- Konukçu, organ, belirti ve aynı etmen üzerinden ilişki puanı
+- Etkileşimli bilgi haritası; düğümlere çift tıklayarak hastalık dosyasına geçiş
+- Etmen ve konukçu kartları / kullanım listeleri
+- Hastalık, etmen ve konukçuları birleştiren aranabilir bilimsel indeks
+- Tüm arşiv fotoğraflarını hastalık, başlık ve açıklamayla gösteren görsel koleksiyon
+- Tekrarlanan kaynakları bir araya getiren kaynak havuzu
+- Sol menü ve Ctrl+K komut paletinden Bilgi Ağı erişimi
+- Mevcut veritabanlarıyla geriye dönük uyumluluk

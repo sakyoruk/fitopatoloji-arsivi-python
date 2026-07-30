@@ -7,6 +7,7 @@ from .preview import DiseasePreview
 from .photo_manager import PhotoManager, PhotoImportDialog
 from .dashboard import Dashboard
 from .disease_file import DiseaseFile
+from .knowledge_graph import KnowledgeCenter
 from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
 
@@ -81,6 +82,7 @@ class MainWindow(tk.Tk):
             ("new", "Yeni hastalık kaydı", "Kayıt oluştur", self.new_record),
             ("edit", "Seçili kaydı düzenle", "Düzenleyici", self.edit_record),
             ("file", "Dijital hastalık dosyasını aç", "Dosya görünümü", self.open_disease_file),
+            ("knowledge", "Bilimsel bilgi ağını aç", "İlişkiler ve indeks", self.open_knowledge_center),
             ("preview", "Seçili kaydı incele", "Önizleme", self.preview_record),
             ("photos", "Fotoğraf yöneticisini aç", "Görsel katalog", self.open_photo_manager),
             ("compare", "Hastalıkları karşılaştır", "Karşılaştırma", self.open_comparison),
@@ -104,6 +106,15 @@ class MainWindow(tk.Tk):
         query.trace_add("write",fill) if hasattr(query,"trace_add") else query.trace("w",fill)
         fill(); tree.bind("<Double-1>",run); dialog.bind("<Return>",run); dialog.bind("<Escape>",lambda _e:dialog.destroy())
         entry.focus_set()
+
+
+    def open_knowledge_center(self):
+        KnowledgeCenter(self, self.db, self.paths, self.selected_id, self._open_from_knowledge)
+
+    def _open_from_knowledge(self, disease_id):
+        self.selected_id = int(disease_id)
+        self.refresh_list(select_id=self.selected_id)
+        self.open_disease_file()
 
     def maximize_window(self):
         try:
@@ -141,6 +152,7 @@ class MainWindow(tk.Tk):
         ttk.Button(nav, text="⌕  Gelişmiş filtre", style="Nav.TButton", command=self.open_advanced_filter).pack(fill="x")
         ttk.Button(nav, text="✓  Teşhis sihirbazı", style="Nav.TButton", command=self.open_diagnosis_wizard).pack(fill="x")
         ttk.Button(nav, text="⇄  Karşılaştır", style="Nav.TButton", command=self.open_comparison).pack(fill="x")
+        ttk.Button(nav, text="◉  Bilgi ağı", style="Nav.TButton", command=self.open_knowledge_center).pack(fill="x")
         ttk.Button(nav, text="▥  İstatistik", style="Nav.TButton", command=self.open_statistics).pack(fill="x")
         ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
         ttk.Button(nav, text="▣  PDF raporu", style="Nav.TButton", command=self.export_pdf_report).pack(fill="x")
