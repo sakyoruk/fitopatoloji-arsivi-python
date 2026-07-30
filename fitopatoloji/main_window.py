@@ -61,8 +61,8 @@ class MainWindow(tk.Tk):
         self.refresh_groups()
         self.refresh_list()
         self.bind_all("<Control-k>", lambda _e: self.open_command_palette())
-        if self.settings.data.get("open_dashboard", True):
-            self.after(500, self.open_dashboard)
+        # Uygulama doğrudan ana arşiv ekranında açılır. Çalışma Merkezi
+        # sol menüdeki "Ana sayfa" komutuyla isteğe bağlı olarak açılır.
 
     def open_maintenance(self):
         MaintenanceCenter(self, self.db, self.paths)

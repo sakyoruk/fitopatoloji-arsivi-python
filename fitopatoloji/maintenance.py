@@ -18,7 +18,7 @@ class SettingsStore(object):
     DEFAULTS = {
         "theme": "Açık",
         "font_scale": "Normal",
-        "open_dashboard": True,
+        "open_dashboard": False,
         "remember_window": True,
         "auto_backup_days": 1,
         "thumbnail_size": "Orta",
@@ -162,7 +162,7 @@ class SettingsDialog(tk.Toplevel):
         self.title("Ayarlar Merkezi"); self.geometry("600x470"); self.transient(parent); self.grab_set()
         d=store.data
         self.theme=tk.StringVar(value=d.get("theme","Açık")); self.font=tk.StringVar(value=d.get("font_scale","Normal"))
-        self.dashboard=tk.BooleanVar(value=bool(d.get("open_dashboard",True))); self.remember=tk.BooleanVar(value=bool(d.get("remember_window",True)))
+        self.dashboard=tk.BooleanVar(value=False); self.remember=tk.BooleanVar(value=bool(d.get("remember_window",True)))
         self.backup=tk.IntVar(value=int(d.get("auto_backup_days",1))); self.thumb=tk.StringVar(value=d.get("thumbnail_size","Orta")); self.export=tk.StringVar(value=d.get("default_export_dir","") or paths.exports)
         self._build()
 
@@ -178,7 +178,7 @@ class SettingsDialog(tk.Toplevel):
         self._row(f,"Otomatik yedek aralığı (gün)",ttk.Spinbox(f,from_=1,to=30,textvariable=self.backup,width=8),4)
         exp=ttk.Frame(f); ttk.Entry(exp,textvariable=self.export).pack(side="left",fill="x",expand=True); ttk.Button(exp,text="Seç",command=self.choose_export).pack(side="left",padx=(5,0))
         self._row(f,"Varsayılan dışa aktarma klasörü",exp,5)
-        ttk.Checkbutton(f,text="Program açıldığında Çalışma Merkezini göster",variable=self.dashboard).grid(row=6,column=0,columnspan=2,sticky="w",pady=7)
+        ttk.Label(f,text="Program ana arşiv ekranında açılır; Çalışma Merkezi sol menüden açılabilir.",style="Muted.TLabel").grid(row=6,column=0,columnspan=2,sticky="w",pady=7)
         ttk.Checkbutton(f,text="Ana pencere boyutunu ve konumunu hatırla",variable=self.remember).grid(row=7,column=0,columnspan=2,sticky="w",pady=7)
         ttk.Label(f,text="Tema ve yazı ölçeği değişiklikleri uygulama yeniden açıldığında tam olarak uygulanır.",style="Muted.TLabel",wraplength=530).grid(row=8,column=0,columnspan=2,sticky="w",pady=(12,0))
         bar=ttk.Frame(f); bar.grid(row=9,column=0,columnspan=2,sticky="e",pady=(22,0)); ttk.Button(bar,text="İptal",command=self.destroy).pack(side="right"); ttk.Button(bar,text="Kaydet",command=self.save).pack(side="right",padx=6)

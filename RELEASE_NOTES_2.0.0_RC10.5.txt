@@ -1,0 +1,6 @@
+Fitopatoloji Arşivi 2.0.0 RC10.5
+
+- Çoktan seçmeli soru düzenleyicisi daha kompakt iki sütunlu düzene geçirildi.
+- A-E seçenekleri, doğru cevap alanı ve açıklama standart ekran yüksekliğine sığdırıldı.
+- Soru düzenleyici varsayılan yüksekliği Windows 7 ekranlarına uygun biçimde azaltıldı.
+- Kaydet ve İptal düğmeleri her zaman görünür alt çubukta korunuyor.

@@ -18,5 +18,5 @@ class RC103QuizTests(unittest.TestCase):
         self.assertEqual(row["option_e"],"e")
         self.assertIn("bolditalic",row["question_format_json"])
         self.assertIn("correct_answer_format_json",row.keys())
-    def test_schema_20012(self): self.assertEqual(self.db.schema_version(),20012)
+    def test_schema_20013(self): self.assertEqual(self.db.schema_version(),20013)
 if __name__=='__main__': unittest.main()

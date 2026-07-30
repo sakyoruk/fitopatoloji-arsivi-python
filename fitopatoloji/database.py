@@ -2,7 +2,7 @@
 from .common import *
 
 class Database(object):
-    SCHEMA_VERSION = 20012
+    SCHEMA_VERSION = 20013
 
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
@@ -232,7 +232,10 @@ class Database(object):
                 option_c_format_json TEXT NOT NULL DEFAULT '{}', option_d_format_json TEXT NOT NULL DEFAULT '{}',
                 option_e_format_json TEXT NOT NULL DEFAULT '{}', explanation_format_json TEXT NOT NULL DEFAULT '{}', correct_answer_format_json TEXT NOT NULL DEFAULT '{}',
                 correct_answer TEXT NOT NULL DEFAULT '', explanation TEXT NOT NULL DEFAULT '',
-                source_text TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1,
+                source_text TEXT NOT NULL DEFAULT '',
+                image_path TEXT NOT NULL DEFAULT '', image_caption TEXT NOT NULL DEFAULT '',
+                image_source TEXT NOT NULL DEFAULT '', image_copyright TEXT NOT NULL DEFAULT '',
+                is_active INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
                 FOREIGN KEY(disease_id) REFERENCES diseases(id) ON DELETE SET NULL
             );
@@ -330,7 +333,11 @@ class Database(object):
             ("option_d_format_json", "TEXT NOT NULL DEFAULT '{}'"),
             ("option_e_format_json", "TEXT NOT NULL DEFAULT '{}'"),
             ("explanation_format_json", "TEXT NOT NULL DEFAULT '{}'"),
-            ("correct_answer_format_json", "TEXT NOT NULL DEFAULT '{}'")
+            ("correct_answer_format_json", "TEXT NOT NULL DEFAULT '{}'") ,
+            ("image_path", "TEXT NOT NULL DEFAULT ''"),
+            ("image_caption", "TEXT NOT NULL DEFAULT ''"),
+            ("image_source", "TEXT NOT NULL DEFAULT ''"),
+            ("image_copyright", "TEXT NOT NULL DEFAULT ''")
         ]:
             if column_name not in quiz_columns:
                 self.conn.execute("ALTER TABLE quiz_questions ADD COLUMN {} {}".format(column_name, definition))
@@ -1127,7 +1134,7 @@ class Database(object):
         now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         fields=("disease_id","question_type","question_text","difficulty","topic_tag","option_a","option_b","option_c","option_d","option_e",
             "question_format_json","option_a_format_json","option_b_format_json","option_c_format_json","option_d_format_json","option_e_format_json","explanation_format_json","correct_answer_format_json",
-            "correct_answer","explanation","source_text")
+            "correct_answer","explanation","source_text","image_path","image_caption","image_source","image_copyright")
         supplied_ids = list(disease_ids or [])
         if not supplied_ids and data.get("disease_id") is not None:
             supplied_ids = [data.get("disease_id")]

@@ -1,0 +1,6 @@
+Fitopatoloji Arşivi 2.0.0 RC10.4
+
+- Soru düzenleyicide ilişkili hastalık adları yüklenirken olmayan Database.get_disease çağrısı düzeltildi.
+- İlişkili hastalıklar artık mevcut Database.get API'si üzerinden okunuyor.
+- Çalışan uygulamadaki sürüm etiketi RC10.4 olarak düzeltildi.
+- Bu hata için regresyon testleri eklendi.

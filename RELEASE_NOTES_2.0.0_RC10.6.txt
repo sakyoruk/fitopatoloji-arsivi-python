@@ -1,0 +1,11 @@
+Fitopatoloji Arşivi 2.0.0 RC10.6
+
+- Soru bankasına isteğe bağlı ana görsel desteği eklendi.
+- Görsel seçme, kaldırma, önizleme ve büyük görünüm eklendi.
+- Görsel açıklaması, kaynak ve telif/kullanım bilgileri saklanıyor.
+- Test sırasında görsel soru kökünün altında orantılı biçimde gösteriliyor.
+- Görsele tıklanınca büyük önizleme açılıyor.
+- Soru görselleri Images/Quiz klasörüne kopyalanıyor.
+- Program artık doğrudan ana Hastalık Arşivi ekranında açılıyor.
+- Çalışma Merkezi sol menüdeki Ana sayfa komutuyla isteğe bağlı açılabiliyor.
+- Veritabanı şeması 20013'e yükseltildi.

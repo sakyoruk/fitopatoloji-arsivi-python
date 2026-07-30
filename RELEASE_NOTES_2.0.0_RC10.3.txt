@@ -1,0 +1,12 @@
+Fitopatoloji Arşivi 2.0.0 RC10.3
+
+- Çoktan seçmeli, Doğru/Yanlış ve Kısa Cevap soru düzenleyicileri ayrı sekmelere ayrıldı.
+- Soru türleri artık birbirinin alanlarını dönüştürmüyor veya karıştırmıyor.
+- Test oluştururken soru türü seçimi eklendi.
+- Hastalık seçicisinde yazdıkça anlık arama eklendi.
+- Soru, seçenek, kısa cevap ve açıklama alanlarına mini Kalın/İtalik araçları ve Ctrl+B/Ctrl+I eklendi.
+- Düzenlenen çoktan seçmeli soruların seçenekleri ve biçimleri geri yükleniyor.
+- Testi Sonlandır, Sonuçları Göster ve Cevabı/Açıklamayı Göster akışları düzeltildi.
+- Soru düzenleyici kaydırmasız, ekrana sığan sekmeli düzene geçirildi.
+- Sınav modülü pencereleri ekran/ana pencere ortasında açılıyor.
+- Veritabanı şeması 20012'ye yükseltildi.
