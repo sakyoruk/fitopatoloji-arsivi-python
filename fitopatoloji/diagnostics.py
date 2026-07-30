@@ -7,7 +7,7 @@ import traceback
 
 class IssueReportDialog(tk.Toplevel):
     def __init__(self, parent, db, paths):
-        tk.Toplevel.__init__(self, parent)
+        tk.Toplevel.__init__(self, parent); center_toplevel(self)
         self.parent=parent; self.db=db; self.paths=paths
         self.title("Sorun Bildir / Tanılama Paketi")
         self.geometry("720x560"); self.minsize(620,480); self.transient(parent); self.grab_set()

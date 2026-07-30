@@ -15,7 +15,7 @@ VIEW_FIELDS = [
 
 class Workspace(tk.Toplevel):
     def __init__(self, master, db, paths, initial_id=None, on_open=None, on_edit=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db, self.paths = db, paths
         self.on_open, self.on_edit = on_open, on_edit
         self.open_ids = []

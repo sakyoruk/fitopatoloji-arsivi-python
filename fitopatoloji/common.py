@@ -153,3 +153,24 @@ class AppPaths(object):
                 os.makedirs(folder)
 
 
+
+
+def center_toplevel(win):
+    """Yeni Toplevel pencerelerini üst pencerenin/ekranın ortasına taşır."""
+    def _apply():
+        try:
+            win.update_idletasks()
+            geom = win.geometry().split('+', 1)[0]
+            width, height = [int(x) for x in geom.split('x')[:2]]
+            parent = getattr(win, 'master', None)
+            if parent is not None and parent.winfo_exists() and parent.winfo_viewable():
+                x = parent.winfo_rootx() + max(0, (parent.winfo_width() - width) // 2)
+                y = parent.winfo_rooty() + max(0, (parent.winfo_height() - height) // 2)
+            else:
+                x = max(0, (win.winfo_screenwidth() - width) // 2)
+                y = max(0, (win.winfo_screenheight() - height) // 2)
+            win.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+        except (tk.TclError, ValueError, AttributeError):
+            pass
+    try: win.after_idle(_apply)
+    except tk.TclError: pass

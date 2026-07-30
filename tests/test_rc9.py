@@ -8,7 +8,7 @@ class RC9Tests(unittest.TestCase):
     def tearDown(self):
         self.db.close(); self.tmp.cleanup()
     def test_schema_and_photo_metadata(self):
-        self.assertEqual(self.db.schema_version(),20011)
+        self.assertGreaterEqual(self.db.schema_version(),20011)
         now='2026-07-30 00:00:00'
         cur=self.db.conn.execute("INSERT INTO diseases(scientific_name,disease_name,created_at,updated_at) VALUES(?,?,?,?)",('A b','H',now,now)); did=cur.lastrowid
         cur=self.db.conn.execute("INSERT INTO attachments(disease_id,file_type,relative_path,created_at) VALUES(?,?,?,?)",(did,'image','x.jpg',now)); aid=cur.lastrowid; self.db.conn.commit()

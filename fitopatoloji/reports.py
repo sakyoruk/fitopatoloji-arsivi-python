@@ -5,7 +5,7 @@ import csv
 
 class ReportsCenter(tk.Toplevel):
     def __init__(self, master, db, paths):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db, self.paths = db, paths
         self.title("Bilimsel raporlar")
         self.geometry("980x650"); self.minsize(780,520); self.transient(master)

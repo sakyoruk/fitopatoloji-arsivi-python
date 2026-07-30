@@ -21,7 +21,7 @@ PREVIEW_FIELDS = [
 
 class DiseasePreview(tk.Toplevel):
     def __init__(self, master, db, paths, disease_id, pdf_callback=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db, self.paths, self.disease_id = db, paths, disease_id
         self.pdf_callback = pdf_callback
         self.record = db.get(disease_id)

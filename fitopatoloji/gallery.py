@@ -17,7 +17,7 @@ class PhotoGallery(tk.Toplevel):
     )
 
     def __init__(self, master, db, paths, disease_id, start_attachment_id=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db = db
         self.paths = paths
         self.disease_id = disease_id

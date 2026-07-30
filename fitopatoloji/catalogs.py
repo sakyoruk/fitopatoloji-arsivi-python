@@ -18,7 +18,7 @@ TAXON_RANKS = [
 
 class TaxonomyCatalog(tk.Toplevel):
     def __init__(self, master, db):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db = db
         self.title("Taksonomi Kataloğu")
         self.geometry("920x600")
@@ -82,7 +82,7 @@ class TaxonomyCatalog(tk.Toplevel):
 
 class HostCatalog(tk.Toplevel):
     def __init__(self, master, db, select_mode=False, disease_id=None, on_change=None, on_select=None, preselected_ids=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db=db; self.select_mode=select_mode; self.disease_id=disease_id; self.on_change=on_change; self.on_select=on_select; self.preselected_ids=set(int(x) for x in (preselected_ids or []))
         self.title("Konukçu Kataloğu")
         self.geometry("980x650"); self.minsize(780,500); self.transient(master)

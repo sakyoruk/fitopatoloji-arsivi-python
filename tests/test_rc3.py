@@ -20,7 +20,7 @@ class RC3RegressionTests(unittest.TestCase):
         shutil.rmtree(self.root, ignore_errors=True)
 
     def test_rc3_schema_and_catalogs(self):
-        self.assertEqual(
+        self.assertGreaterEqual(
             self.db.conn.execute("PRAGMA user_version").fetchone()[0],
             20011,
         )

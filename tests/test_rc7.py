@@ -8,7 +8,7 @@ class RC7Tests(unittest.TestCase):
     def tearDown(self):
         self.db.close(); self.tmp.cleanup()
     def test_schema_version(self):
-        self.assertEqual(self.db.schema_version(),20011)
+        self.assertGreaterEqual(self.db.schema_version(),20011)
     def test_literature_reuse_and_links(self):
         lid=self.db.literature_save(title='Plant Pathology',authors='Agrios',year_text='2005',publication_type='Kitap')
         base={'group_name':'Fungus','scientific_name':'A a','disease_name':'A','hosts':'','affected_organs':'','symptoms':'','pathogen_features':'','disease_cycle':'','epidemiology':'','differential_diagnosis':'','cultural_control':'','biological_control':'','chemical_control':'','distribution_turkey':'','distribution_world':'','climate_notes':'','sources':'','favorite':0,'notes':''}

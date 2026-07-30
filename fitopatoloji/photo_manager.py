@@ -14,7 +14,7 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff"}
 class PhotoImportDialog(tk.Toplevel):
     """Çoklu fotoğraf eklemeden önce seçimleri küçük resimlerle gözden geçirir."""
     def __init__(self, master, paths):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.paths = paths
         self.result = None
         self.files = []
@@ -118,7 +118,7 @@ class PhotoImportDialog(tk.Toplevel):
 class PhotoManager(tk.Toplevel):
     """Hastalığa bağlı fotoğraflar için katalog, metadata ve toplu işlem ekranı."""
     def __init__(self, master, db, paths, disease_id, refresh_callback=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db, self.paths, self.disease_id = db, paths, disease_id
         self.refresh_callback = refresh_callback
         self.photos = []

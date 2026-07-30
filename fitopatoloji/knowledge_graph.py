@@ -23,7 +23,7 @@ def related(db, disease_id, limit=20):
 
 class KnowledgeCenter(tk.Toplevel):
     def __init__(self,parent,db,paths,disease_id=None,on_open=None):
-        tk.Toplevel.__init__(self,parent); self.db=db; self.paths=paths; self.disease_id=disease_id; self.on_open=on_open
+        tk.Toplevel.__init__(self, parent); center_toplevel(self); self.db=db; self.paths=paths; self.disease_id=disease_id; self.on_open=on_open
         self.title('Bilimsel Bilgi Ağı'); self.geometry('1120x720'); self.minsize(850,560); self.transient(parent)
         nb=ttk.Notebook(self); nb.pack(fill='both',expand=True,padx=10,pady=10)
         self.rel=ttk.Frame(nb,padding=10); self.graph=ttk.Frame(nb,padding=10); self.entities=ttk.Frame(nb,padding=10); self.index=ttk.Frame(nb,padding=10); self.images=ttk.Frame(nb,padding=10); self.refs=ttk.Frame(nb,padding=10)

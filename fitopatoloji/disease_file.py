@@ -17,7 +17,7 @@ CARD_FIELDS = [
 
 class DiseaseFile(tk.Toplevel):
     def __init__(self, master, db, paths, disease_id, on_edit=None, on_preview=None, on_pdf=None, on_photos=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db, self.paths, self.disease_id = db, paths, disease_id
         self.on_edit, self.on_preview, self.on_pdf, self.on_photos = on_edit, on_preview, on_pdf, on_photos
         self.record = db.get(disease_id)

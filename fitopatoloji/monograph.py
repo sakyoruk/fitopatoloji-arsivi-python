@@ -28,7 +28,7 @@ DEFAULT_FIELDS = [
 
 class MonographBuilder(tk.Toplevel):
     def __init__(self, master, database, paths, selected_ids=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db, self.paths = database, paths
         self.title("Dijital Monografi Oluşturucu")
         self.geometry("1120x720"); self.minsize(900, 620); self.transient(master)

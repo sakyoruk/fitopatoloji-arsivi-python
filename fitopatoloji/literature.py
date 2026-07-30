@@ -10,7 +10,7 @@ FIELDS = [
 
 class LiteratureCatalog(tk.Toplevel):
     def __init__(self, master, db, disease_id=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db=db; self.disease_id=disease_id; self.selected_id=None
         self.title("Literatür Kataloğu")
         self.geometry("1040x680"); self.minsize(850,560); self.transient(master)
@@ -92,7 +92,7 @@ class LiteratureCatalog(tk.Toplevel):
 
 class PrivateNoteDialog(tk.Toplevel):
     def __init__(self, master, db, disease_id, title_text=""):
-        tk.Toplevel.__init__(self,master); self.db=db; self.disease_id=disease_id
+        tk.Toplevel.__init__(self, master); center_toplevel(self); self.db=db; self.disease_id=disease_id
         self.title("Bilimsel Özel Notlar"); self.geometry("650x450"); self.transient(master); self.grab_set()
         frame=ttk.Frame(self,padding=14); frame.pack(fill="both",expand=True)
         ttk.Label(frame,text=title_text or "Hastalık notu",style="Title.TLabel").pack(anchor="w")

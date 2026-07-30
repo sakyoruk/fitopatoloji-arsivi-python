@@ -30,7 +30,7 @@ class DiseaseEditor(tk.Toplevel):
     ]
 
     def __init__(self, master, groups, initial=None, rich_initial=None, on_save=None, on_draft=None, draft_key=None, on_saved=None, database=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.title("Kayıt düzenle" if initial else "Yeni kayıt")
         self.transient(master)
         self.grab_set()

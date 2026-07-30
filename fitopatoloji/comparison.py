@@ -51,7 +51,7 @@ def similarity_score(left, right):
 
 class DiseaseComparison(tk.Toplevel):
     def __init__(self, master, db, initial_id=None):
-        tk.Toplevel.__init__(self, master)
+        tk.Toplevel.__init__(self, master); center_toplevel(self)
         self.db = db
         self.records = []
         self.selected_records = []

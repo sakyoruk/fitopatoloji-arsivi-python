@@ -52,7 +52,7 @@ class SettingsStore(object):
 
 class MaintenanceCenter(tk.Toplevel):
     def __init__(self, parent, db, paths):
-        tk.Toplevel.__init__(self, parent)
+        tk.Toplevel.__init__(self, parent); center_toplevel(self)
         self.parent = parent; self.db = db; self.paths = paths
         self.title("Bakım ve Tanılama Merkezi")
         self.geometry("850x590"); self.minsize(720, 480); self.transient(parent)
@@ -158,7 +158,7 @@ class MaintenanceCenter(tk.Toplevel):
 
 class SettingsDialog(tk.Toplevel):
     def __init__(self, parent, paths, store):
-        tk.Toplevel.__init__(self, parent); self.parent=parent; self.paths=paths; self.store=store
+        tk.Toplevel.__init__(self, parent); center_toplevel(self); self.parent=parent; self.paths=paths; self.store=store
         self.title("Ayarlar Merkezi"); self.geometry("600x470"); self.transient(parent); self.grab_set()
         d=store.data
         self.theme=tk.StringVar(value=d.get("theme","Açık")); self.font=tk.StringVar(value=d.get("font_scale","Normal"))
@@ -195,7 +195,7 @@ class SettingsDialog(tk.Toplevel):
 
 class HelpCenter(tk.Toplevel):
     def __init__(self, parent):
-        tk.Toplevel.__init__(self,parent); self.title("Yardım Merkezi"); self.geometry("820x590"); self.transient(parent)
+        tk.Toplevel.__init__(self, parent); center_toplevel(self); self.title("Yardım Merkezi"); self.geometry("820x590"); self.transient(parent)
         shell=ttk.Frame(self,padding=14); shell.pack(fill="both",expand=True)
         ttk.Label(shell,text="Yardım Merkezi",style="Title.TLabel").pack(anchor="w")
         book=ttk.Notebook(shell); book.pack(fill="both",expand=True,pady=(10,0))

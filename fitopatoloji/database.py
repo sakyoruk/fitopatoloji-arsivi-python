@@ -2,7 +2,7 @@
 from .common import *
 
 class Database(object):
-    SCHEMA_VERSION = 20011
+    SCHEMA_VERSION = 20012
 
     def __init__(self, db_path, seed_csv=None):
         self.db_path = db_path
@@ -230,7 +230,7 @@ class Database(object):
                 question_format_json TEXT NOT NULL DEFAULT '{}',
                 option_a_format_json TEXT NOT NULL DEFAULT '{}', option_b_format_json TEXT NOT NULL DEFAULT '{}',
                 option_c_format_json TEXT NOT NULL DEFAULT '{}', option_d_format_json TEXT NOT NULL DEFAULT '{}',
-                option_e_format_json TEXT NOT NULL DEFAULT '{}', explanation_format_json TEXT NOT NULL DEFAULT '{}',
+                option_e_format_json TEXT NOT NULL DEFAULT '{}', explanation_format_json TEXT NOT NULL DEFAULT '{}', correct_answer_format_json TEXT NOT NULL DEFAULT '{}',
                 correct_answer TEXT NOT NULL DEFAULT '', explanation TEXT NOT NULL DEFAULT '',
                 source_text TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
@@ -329,7 +329,8 @@ class Database(object):
             ("option_c_format_json", "TEXT NOT NULL DEFAULT '{}'"),
             ("option_d_format_json", "TEXT NOT NULL DEFAULT '{}'"),
             ("option_e_format_json", "TEXT NOT NULL DEFAULT '{}'"),
-            ("explanation_format_json", "TEXT NOT NULL DEFAULT '{}'")
+            ("explanation_format_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ("correct_answer_format_json", "TEXT NOT NULL DEFAULT '{}'")
         ]:
             if column_name not in quiz_columns:
                 self.conn.execute("ALTER TABLE quiz_questions ADD COLUMN {} {}".format(column_name, definition))
@@ -1097,13 +1098,14 @@ class Database(object):
 
 
     # RC8/RC10.2 — Bilgi Sınavı ve Öğrenme Modülü
-    def quiz_questions(self, query="", disease_id=None, difficulty="", topic="", active_only=False):
+    def quiz_questions(self, query="", disease_id=None, difficulty="", topic="", question_type="", active_only=False):
         clauses=[]; params=[]
         if query:
             like="%"+query.strip()+"%"; clauses.append("(q.question_text LIKE ? OR q.topic_tag LIKE ? OR q.explanation LIKE ? OR q.source_text LIKE ?)"); params.extend([like]*4)
         if disease_id is not None:
             clauses.append("EXISTS (SELECT 1 FROM quiz_question_diseases qd WHERE qd.question_id=q.id AND qd.disease_id=?)"); params.append(int(disease_id))
         if difficulty: clauses.append("q.difficulty=?"); params.append(difficulty)
+        if question_type: clauses.append("q.question_type=?"); params.append(question_type)
         if topic: clauses.append("q.topic_tag LIKE ?"); params.append("%"+topic.strip()+"%")
         if active_only: clauses.append("q.is_active=1")
         where=(" WHERE "+" AND ".join(clauses)) if clauses else ""
@@ -1124,7 +1126,7 @@ class Database(object):
     def quiz_question_save(self, question_id=None, disease_ids=None, **data):
         now=dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         fields=("disease_id","question_type","question_text","difficulty","topic_tag","option_a","option_b","option_c","option_d","option_e",
-            "question_format_json","option_a_format_json","option_b_format_json","option_c_format_json","option_d_format_json","option_e_format_json","explanation_format_json",
+            "question_format_json","option_a_format_json","option_b_format_json","option_c_format_json","option_d_format_json","option_e_format_json","explanation_format_json","correct_answer_format_json",
             "correct_answer","explanation","source_text")
         supplied_ids = list(disease_ids or [])
         if not supplied_ids and data.get("disease_id") is not None:

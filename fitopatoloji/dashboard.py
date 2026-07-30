@@ -37,7 +37,7 @@ def record_quality(row, photo_count=0):
 
 class Dashboard(tk.Toplevel):
     def __init__(self, parent, database, open_callback, new_callback, command_callback=None):
-        tk.Toplevel.__init__(self, parent)
+        tk.Toplevel.__init__(self, parent); center_toplevel(self)
         self.parent = parent
         self.db = database
         self.open_callback = open_callback
