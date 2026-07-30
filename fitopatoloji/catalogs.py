@@ -70,9 +70,9 @@ class TaxonomyCatalog(tk.Toplevel):
         if sel and messagebox.askyesno(APP_NAME,"Seçili takson silinsin mi?",parent=self): self.db.taxonomy_delete(int(sel[0])); self.refresh()
 
 class HostCatalog(tk.Toplevel):
-    def __init__(self, master, db, select_mode=False, disease_id=None, on_change=None, on_select=None):
+    def __init__(self, master, db, select_mode=False, disease_id=None, on_change=None, on_select=None, preselected_ids=None):
         tk.Toplevel.__init__(self, master)
-        self.db=db; self.select_mode=select_mode; self.disease_id=disease_id; self.on_change=on_change; self.on_select=on_select
+        self.db=db; self.select_mode=select_mode; self.disease_id=disease_id; self.on_change=on_change; self.on_select=on_select; self.preselected_ids=set(int(x) for x in (preselected_ids or []))
         self.title("Konukçu Kataloğu")
         self.geometry("980x650"); self.minsize(780,500); self.transient(master)
         self._build(); self.refresh()
@@ -95,7 +95,9 @@ class HostCatalog(tk.Toplevel):
 
     def refresh(self):
         self.tree.delete(*self.tree.get_children())
-        for r in self.db.host_list(self.query.get()): self.tree.insert("","end",iid=str(r["id"]),values=(r["common_name"],r["scientific_name"],r["family_name"],r["genus_name"],r["taxon_level"]))
+        for r in self.db.host_list(self.query.get()):
+            iid=str(r["id"]); self.tree.insert("","end",iid=iid,values=(r["common_name"],r["scientific_name"],r["family_name"],r["genus_name"],r["taxon_level"]))
+            if int(r["id"]) in self.preselected_ids: self.tree.selection_add(iid)
     def _dialog(self,row=None):
         dlg=tk.Toplevel(self); dlg.title("Konukçu düzenle" if row else "Yeni konukçu"); dlg.transient(self); dlg.grab_set(); dlg.geometry("560x470")
         frm=ttk.Frame(dlg,padding=14); frm.pack(fill="both",expand=True); frm.columnconfigure(1,weight=1)

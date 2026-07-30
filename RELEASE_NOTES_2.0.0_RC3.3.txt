@@ -1,0 +1,9 @@
+Fitopatoloji Arşivi 2.0.0 RC3.3
+
+- Hastalık düzenleyicide çoklu konukçu ilişkilendirme tablosu eklendi.
+- Konukçu Kataloğu artık Ctrl/Shift ile çoklu seçim yapabiliyor.
+- Yeni seçimler mevcut konukçuların üzerine yazılmak yerine listeye ekleniyor.
+- Aynı konukçunun yinelenmesi engellendi.
+- Seçili konukçuları hastalık kaydından toplu kaldırma eklendi.
+- Katalog yeniden açıldığında daha önce seçilmiş konukçular işaretli geliyor.
+- Konukçu sayısı düzenleme ekranında gösteriliyor.

@@ -4,6 +4,21 @@ from .richtext import RichTextEditor
 from .catalogs import AGENT_GROUPS, TAXON_RANKS, HostCatalog
 
 
+def merge_host_ids(existing, added):
+    """Return host ids in stable order without duplicates."""
+    result = []
+    seen = set()
+    for value in list(existing or []) + list(added or []):
+        try:
+            host_id = int(value)
+        except (TypeError, ValueError):
+            continue
+        if host_id not in seen:
+            seen.add(host_id)
+            result.append(host_id)
+    return result
+
+
 class DiseaseEditor(tk.Toplevel):
     """Kayıt girişini hızlandıran, tamamlanma ve değişiklik takibi yapan düzenleyici."""
     IMPORTANT_FIELDS = [
@@ -114,11 +129,26 @@ class DiseaseEditor(tk.Toplevel):
             row += 1
         ttk.Label(basic, text="Konukçular  •").grid(row=row, column=0, sticky="nw", pady=5)
         host_box = ttk.Frame(basic)
-        host_box.grid(row=row, column=1, sticky="ew", pady=5)
+        host_box.grid(row=row, column=1, sticky="nsew", pady=5)
         host_box.columnconfigure(0, weight=1)
+        host_box.rowconfigure(1, weight=1)
+        host_toolbar = ttk.Frame(host_box)
+        host_toolbar.grid(row=0, column=0, sticky="ew", pady=(0, 5))
+        ttk.Button(host_toolbar, text="Konukçu ekle", style="Primary.TButton", command=self._select_hosts).pack(side="left")
+        ttk.Button(host_toolbar, text="Seçileni kaldır", command=self._remove_selected_hosts).pack(side="left", padx=(6, 0))
+        self.host_count_var = tk.StringVar(value="0 konukçu")
+        ttk.Label(host_toolbar, textvariable=self.host_count_var).pack(side="right")
+        self.host_tree = ttk.Treeview(host_box, columns=("common", "scientific", "level"), show="headings", height=5, selectmode="extended")
+        for key, text, width in [("common", "Türkçe ad", 170), ("scientific", "Bilimsel ad", 230), ("level", "Düzey", 80)]:
+            self.host_tree.heading(key, text=text)
+            self.host_tree.column(key, width=width, anchor="w")
+        host_scroll = ttk.Scrollbar(host_box, orient="vertical", command=self.host_tree.yview)
+        self.host_tree.configure(yscrollcommand=host_scroll.set)
+        self.host_tree.grid(row=1, column=0, sticky="nsew")
+        host_scroll.grid(row=1, column=1, sticky="ns")
         self.hosts_var = tk.StringVar(value=self.initial.get("hosts", "") or "")
-        ttk.Entry(host_box, textvariable=self.hosts_var, state="readonly").grid(row=0, column=0, sticky="ew")
-        ttk.Button(host_box, text="Listeden seç", command=self._select_hosts).grid(row=0, column=1, padx=(6,0))
+        basic.rowconfigure(row, weight=1)
+        self._refresh_selected_hosts()
         row += 1
         ttk.Label(basic, text="Etiketler").grid(row=row, column=0, sticky="w", pady=5)
         self.vars["_tags"] = tk.StringVar(value=self.initial.get("_tags", "") or "")
@@ -150,21 +180,46 @@ class DiseaseEditor(tk.Toplevel):
                 editor.grid(row=idx*2+1, column=0, sticky="nsew", pady=(0,7))
                 self.texts[field] = editor
 
+    def _refresh_selected_hosts(self):
+        if not hasattr(self, "host_tree"):
+            return
+        self.host_tree.delete(*self.host_tree.get_children())
+        names = []
+        valid_ids = []
+        if self.db:
+            for host_id in self.selected_host_ids:
+                row = self.db.host_get(int(host_id))
+                if not row:
+                    continue
+                valid_ids.append(int(row["id"]))
+                common = row["common_name"] or ""
+                scientific = row["scientific_name"] or ""
+                self.host_tree.insert("", "end", iid=str(row["id"]), values=(common, scientific, row["taxon_level"] or ""))
+                names.append("{} ({})".format(common, scientific) if common and scientific else (common or scientific))
+        self.selected_host_ids = valid_ids
+        self.hosts_var.set(", ".join(names))
+        self.host_count_var.set("{} konukçu".format(len(valid_ids)))
+
     def _select_hosts(self):
         if not self.db:
             messagebox.showinfo(APP_NAME, "Konukçu kataloğu kullanılamıyor.", parent=self)
             return
         def selected(rows):
-            self.selected_host_ids = [int(r["id"]) for r in rows]
-            names=[]
-            for r in rows:
-                if r["common_name"] and r["scientific_name"]:
-                    names.append("{} ({})".format(r["common_name"], r["scientific_name"]))
-                else:
-                    names.append(r["common_name"] or r["scientific_name"])
-            self.hosts_var.set(", ".join(names))
+            added_ids = [int(r["id"]) for r in rows]
+            self.selected_host_ids = merge_host_ids(self.selected_host_ids, added_ids)
+            self._refresh_selected_hosts()
             self.mark_dirty()
-        HostCatalog(self, self.db, select_mode=True, on_select=selected)
+        HostCatalog(self, self.db, select_mode=True, on_select=selected, preselected_ids=self.selected_host_ids)
+
+    def _remove_selected_hosts(self):
+        selected = [int(iid) for iid in self.host_tree.selection()]
+        if not selected:
+            messagebox.showinfo(APP_NAME, "Kaldırmak için bir veya daha fazla konukçu seçin.", parent=self)
+            return
+        remove_ids = set(selected)
+        self.selected_host_ids = [host_id for host_id in self.selected_host_ids if int(host_id) not in remove_ids]
+        self._refresh_selected_hosts()
+        self.mark_dirty()
 
     def _bind_change_tracking(self):
         for var in self.vars.values():
@@ -201,7 +256,13 @@ class DiseaseEditor(tk.Toplevel):
         self._draft_job = None
         if not self.dirty or not self.on_draft: return
         data = self._collect(); rich = data.pop("_rich_text", {})
-        self.on_draft(self.draft_key, data, rich)
+        disease_id = self.initial.get("id") if isinstance(self.initial, dict) else None
+        if disease_id is None and isinstance(self.draft_key, str) and self.draft_key.startswith("edit:"):
+            try:
+                disease_id = int(self.draft_key.split(":", 1)[1])
+            except (TypeError, ValueError):
+                disease_id = None
+        self.on_draft(self.draft_key, disease_id, data, rich)
         self.change_var.set("Taslak otomatik kaydedildi")
 
     def _collect(self):

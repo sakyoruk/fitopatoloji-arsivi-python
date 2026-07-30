@@ -1,0 +1,6 @@
+Fitopatoloji Arşivi 2.0.0 RC3.2
+
+Düzeltme:
+- Kayıt düzenleyicide otomatik taslak kaydı sırasında Database.save_draft çağrısına eksik olan disease_id parametresi eklendi.
+- Yeni kayıtlarda disease_id None, mevcut kayıt taslaklarında ilgili kayıt kimliği güvenli biçimde aktarılır.
+- Bu hata için regresyon testi eklendi.
