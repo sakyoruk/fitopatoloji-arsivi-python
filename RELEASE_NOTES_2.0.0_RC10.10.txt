@@ -1,0 +1,6 @@
+Fitopatoloji Arşivi 2.0.0 RC10.10
+
+- Ana pencerenin açılışta çökmesine neden olan eksik open_file_manager metodu eklendi.
+- Dosyalar düğmesi seçili hastalığın Dosya Yöneticisini güvenli biçimde açıyor.
+- Seçili kayıt yoksa kullanıcıya açıklayıcı uyarı gösteriliyor.
+- Sürüm ve GitHub Actions paket adı güncellendi.

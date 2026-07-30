@@ -1,0 +1,10 @@
+Fitopatoloji Arşivi 2.0.0 RC10.9
+
+- Hastalık ayrıntıları tek birleşik zengin metin alanına taşındı.
+- Eski bölüm metinleri veri kaybı olmadan birleşik alana aktarılır.
+- Ana ekrandaki fotoğraf/belge şeridi kaldırıldı.
+- Fotoğraf ve dosya yönetimi ayrı pencerelere ayrıldı.
+- Fotoğraf yöneticisinin sağ paneli kaydırılabilir ve daha kompakt yapıldı.
+- Fotoğraf sıralama düğmeleri görünür ve erişilebilir hale getirildi.
+- Çoktan seçmeli soruda doğru cevap seçimi zorunlu yapıldı.
+- Soru düzenleyici B/I düğmeleri küçültüldü.

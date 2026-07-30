@@ -1,0 +1,8 @@
+Fitopatoloji Arşivi 2.0.0 RC10.7
+
+- Çoktan seçmeli soru düzenleyicisinde açıklama alanı görünür ve genişleyebilir hale getirildi.
+- Soru kökü ve üst bilgi alanları daha kompakt düzenlendi.
+- Sınav ekranında soru görseli soru kökünün üzerine taşındı.
+- Sınav sonucu düğmeleri pencerenin altına sabitlendi.
+- Sınav ve Çalışma modlarının farkı Test Başlat ekranında açıklanıyor.
+- Çalışma modunda geri bildirim düğmesi otomatik olarak etkin.

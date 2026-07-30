@@ -1,0 +1,7 @@
+Fitopatoloji Arşivi 2.0.0 RC10.8
+
+- Sınav ekranı kaydırılabilir içerik ve sabit alt işlem çubuğu ile yeniden düzenlendi.
+- Çok satırlı A-E seçenekleri içerik uzunluğuna göre büyüyor; metinler kırpılmıyor.
+- Doğru cevap açıklaması görünür ve erişilebilir hale getirildi.
+- Soru düzenleyicisindeki B/I araçları küçültüldü ve açıklama alanına daha fazla yer ayrıldı.
+- Soru düzenleyicisinde seçenekler ve doğru cevap alanı daha kompakt hale getirildi.
