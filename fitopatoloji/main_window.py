@@ -12,6 +12,7 @@ from .workspace import Workspace
 from .monograph import MonographBuilder
 from .theme import apply_theme, COLORS
 from .rich_utils import apply_to_text_widget, to_reportlab
+from .maintenance import MaintenanceCenter, SettingsDialog, SettingsStore, HelpCenter
 
 class MainWindow(tk.Tk):
     def __init__(self, paths, database):
@@ -19,9 +20,11 @@ class MainWindow(tk.Tk):
         apply_theme(self)
         self.paths = paths
         self.db = database
+        self.settings = SettingsStore(paths)
         self.selected_id = None
         self.title("{} {}".format(APP_NAME, APP_VERSION))
-        self.geometry("1220x760")
+        saved_geometry = self.settings.data.get("window_geometry", "")
+        self.geometry(saved_geometry or "1220x760")
         self.minsize(960, 620)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.after_idle(self.maximize_window)
@@ -50,7 +53,17 @@ class MainWindow(tk.Tk):
         self.refresh_groups()
         self.refresh_list()
         self.bind_all("<Control-k>", lambda _e: self.open_command_palette())
-        self.after(500, self.open_dashboard)
+        if self.settings.data.get("open_dashboard", True):
+            self.after(500, self.open_dashboard)
+
+    def open_maintenance(self):
+        MaintenanceCenter(self, self.db, self.paths)
+
+    def open_settings(self):
+        SettingsDialog(self, self.paths, self.settings)
+
+    def open_help(self):
+        HelpCenter(self)
 
     def open_dashboard(self):
         try:
@@ -115,6 +128,9 @@ class MainWindow(tk.Tk):
             ("pdf", "PDF raporu oluştur", "Dışa aktar", self.export_pdf_report),
             ("backup", "Yedek oluştur", "Güvenlik", self.create_backup),
             ("duplicates", "Benzer kayıtları bul", "Arşiv denetimi", self.find_duplicates),
+            ("maintenance", "Bakım ve tanılama merkezini aç", "Veritabanı sağlığı", self.open_maintenance),
+            ("settings", "Ayarlar merkezini aç", "Uygulama tercihleri", self.open_settings),
+            ("help", "Yardım merkezini aç", "Kullanım ve kısayollar", self.open_help),
         ]
         def fill(*_args):
             text=query.get().strip().lower(); tree.delete(*tree.get_children())
@@ -185,6 +201,8 @@ class MainWindow(tk.Tk):
         ttk.Button(nav, text="▣  PDF raporu", style="Nav.TButton", command=self.export_pdf_report).pack(fill="x")
         ttk.Button(nav, text="▤  Excel aktar", style="Nav.TButton", command=self.export_excel).pack(fill="x")
         ttk.Button(nav, text="⛁  Yedekleme", style="Nav.TButton", command=self.create_backup).pack(fill="x")
+        ttk.Separator(nav, orient="horizontal").pack(fill="x", padx=14, pady=8)
+        ttk.Button(nav, text="⚙  Sistem bakımı", style="Nav.TButton", command=self.open_maintenance).pack(fill="x")
 
         content = ttk.Frame(shell)
         content.pack(side="left", fill="both", expand=True)
@@ -1408,6 +1426,12 @@ class MainWindow(tk.Tk):
             messagebox.showerror(APP_NAME, "CSV oluşturulamadı:\n{}".format(exc), parent=self)
 
     def on_close(self):
+        if self.settings.data.get("remember_window", True):
+            try:
+                self.settings.data["window_geometry"] = self.geometry()
+                self.settings.save()
+            except Exception:
+                pass
         self.db.close()
         self.destroy()
 

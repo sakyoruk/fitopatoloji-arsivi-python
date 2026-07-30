@@ -2,11 +2,30 @@
 from __future__ import print_function
 
 import sys
+import os
+import datetime as dt
+import traceback
 
-from fitopatoloji.common import APP_NAME, AppPaths, resource_path, tk, messagebox
+from fitopatoloji.common import APP_NAME, APP_VERSION, AppPaths, resource_path, tk, messagebox
 from fitopatoloji.database import Database
 from fitopatoloji.main_window import MainWindow
 from fitopatoloji.selftest import self_test
+
+
+def install_exception_handler(root, paths):
+    def report(exc_type, exc_value, exc_tb):
+        try:
+            log_dir = os.path.join(paths.data, "Logs")
+            if not os.path.isdir(log_dir):
+                os.makedirs(log_dir)
+            log_path = os.path.join(log_dir, "error_{}.log".format(dt.datetime.now().strftime("%Y%m%d_%H%M%S")))
+            with open(log_path, "w", encoding="utf-8") as handle:
+                handle.write("{} {}\n{}\n\n".format(APP_NAME, APP_VERSION, dt.datetime.now()))
+                traceback.print_exception(exc_type, exc_value, exc_tb, file=handle)
+            messagebox.showerror(APP_NAME, "İşlem sırasında beklenmeyen bir hata oluştu.\n\nVerileriniz korunmuştur. Tanılama kaydı:\n{}".format(log_path), parent=root)
+        except Exception:
+            traceback.print_exception(exc_type, exc_value, exc_tb)
+    root.report_callback_exception = report
 
 
 def main():
@@ -29,6 +48,7 @@ def main():
         return 1
 
     app = MainWindow(paths, db)
+    install_exception_handler(app, paths)
     app.mainloop()
     return 0
 

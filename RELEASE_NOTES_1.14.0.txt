@@ -1,0 +1,13 @@
+Fitopatoloji Arşivi 1.14.0 — Performans, Kararlılık ve Profesyonel Son Rötuşlar
+
+- Bakım ve Tanılama Merkezi eklendi.
+- SQLite bütünlük denetimi, ANALYZE ve VACUUM işlemleri eklendi.
+- Aktif kayıt, fotoğraf, belge, geçmiş, taslak, veritabanı boyutu ve son yedek özeti eklendi.
+- Eksik fotoğraf/belge bağlantılarını listeleyen denetim eklendi.
+- Paylaşılabilir metin biçiminde tanılama raporu oluşturma eklendi.
+- Ayarlar Merkezi eklendi: açılış ekranı, pencereyi hatırlama, yazı ölçeği, tema, thumbnail boyutu, yedek aralığı ve dışa aktarma klasörü.
+- Ana pencerenin boyutu ve konumu güvenli biçimde hatırlanıyor.
+- Uygulama içi Yardım Merkezi ve klavye kısayolları rehberi eklendi.
+- Beklenmeyen Tkinter hataları uygulamayı sessizce kapatmak yerine Logs klasörüne tanılama kaydı oluşturuyor.
+- Komut paletine bakım, ayarlar ve yardım komutları eklendi.
+- Windows 7 SP1 x64 ve mevcut SQLite arşivleriyle geriye dönük uyumluluk korundu.
